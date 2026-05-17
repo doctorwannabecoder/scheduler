@@ -193,8 +193,13 @@
     <div class="card">
       <h2>Funcionários</h2>
       <div class="row" style="margin-bottom:10px">
-        <button class="btn" onclick="addEmployee()">+ Adicionar funcionário</button>
-        <span class="small">Total: <span id="empCount">0</span></span>
+        <button class="btn" onclick="addEmployee()">+ Novo funcionário</button>
+        <label style="flex-direction:row;align-items:center;gap:6px;color:var(--text)">
+          <span style="font-size:12px;color:var(--muted)">Copiar de:</span>
+          <select id="copyFromSel" style="min-width:120px"></select>
+          <button class="btn secondary" onclick="copyEmployee()">Copiar</button>
+        </label>
+        <span class="small" style="margin-left:auto">Total: <span id="empCount">0</span></span>
       </div>
       <div style="overflow-x:auto">
         <table id="empTable">
@@ -865,20 +870,19 @@ function renderEmployees(){
   const headRow = document.getElementById('empHeadRow');
   const mode = state.settings.shiftMode;
 
-  // Cabeçalhos: 3 colunas agrupadas (12h) ou 2 (24h)
+  // Cabeçalhos: 2 colunas de elegibilidade (12h) ou 2 (24h) — Sem D é universal, DP gerido internamente
   let eligHeads;
   if(mode==='12h'){
     eligHeads = `
-      <th class="center" style="min-width:60px">Sem D</th>
-      <th class="center" style="min-width:100px">Sem N<br><span style="font-weight:400;font-size:11px;color:var(--muted)">+ FDS D</span></th>
-      <th class="center" style="min-width:100px">FDS N<br><span style="font-weight:400;font-size:11px;color:var(--muted)">+ P</span></th>`;
+      <th class="center" style="min-width:90px" title="Trabalho noturno em semana + Turno de dia ao fim-de-semana">Sem N + FDS D</th>
+      <th class="center" style="min-width:90px" title="Turno noturno ao fim-de-semana + Prevenção">FDS N + P</th>`;
   } else {
     eligHeads = `
-      <th class="center">Sem (24h)</th>
-      <th class="center">FDS (24h)</th>`;
+      <th class="center">24h Semana</th>
+      <th class="center">24h FDS</th>`;
   }
   headRow.innerHTML = `
-    <th>Nome</th><th>Categoria</th><th class="center">DP</th>
+    <th>Nome</th><th>Categoria</th>
     ${eligHeads}
     <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
     <th>Notas</th><th></th>`;
@@ -888,32 +892,30 @@ function renderEmployees(){
     const tr = document.createElement('tr');
     const catSel = CATEGORIES.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('');
     const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''}/>`;
+    // Checkbox de grupo: um tick controla todas as chaves do grupo
+    const cbg = (keys, empId) => {
+      const checked = e.eligibility[keys[0]];
+      return `<input type="checkbox" data-emp="${empId}" data-grp="${keys.join(',')}" ${checked?'checked':''}/>`;
+    };
     let eligCells = '';
     if(mode==='12h'){
-      // Coluna 1: Sem D | Coluna 2: Sem N + FDS D | Coluna 3: FDS N + P
+      // Coluna 1: Sem N + FDS D (um tick)  |  Coluna 2: FDS N + P (um tick)
+      // Sem D é universal — não precisa de controlo
       eligCells = `
-        <td class="center">${cb('weekdayDay')}</td>
-        <td class="center" style="white-space:nowrap">
-          <span style="font-size:11px;color:var(--muted)">SN</span> ${cb('weekdayNight')}
-          <span style="font-size:11px;color:var(--muted);margin-left:4px">FD</span> ${cb('weekendDay')}
-        </td>
-        <td class="center" style="white-space:nowrap">
-          <span style="font-size:11px;color:var(--muted)">FN</span> ${cb('weekendNight')}
-          <span style="font-size:11px;color:var(--muted);margin-left:4px">P</span> ${cb('prevention')}
-        </td>`;
+        <td class="center">${cbg(['weekdayNight','weekendDay'], e.id)}</td>
+        <td class="center">${cbg(['weekendNight','prevention'], e.id)}</td>`;
     } else {
       eligCells = `
-        <td class="center">${cb('weekday24')}</td>
-        <td class="center">${cb('weekend24')}</td>`;
+        <td class="center">${cbg(['weekday24'], e.id)}</td>
+        <td class="center">${cbg(['weekend24'], e.id)}</td>`;
     }
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
       <td><select data-emp="${e.id}" data-field="category">${catSel}</select></td>
-      <td class="center"><input type="checkbox" data-emp="${e.id}" data-field="dedicacaoPlena" ${e.dedicacaoPlena?'checked':''}/></td>
       ${eligCells}
-      <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:60px"/></td>
-      <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:60px"/></td>
-      <td><input type="text" value="${escapeHtml(e.notes||'')}" data-emp="${e.id}" data-field="notes" style="width:140px"/></td>
+      <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:55px"/></td>
+      <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:55px"/></td>
+      <td><input type="text" value="${escapeHtml(e.notes||'')}" data-emp="${e.id}" data-field="notes" style="width:130px"/></td>
       <td><button class="btn danger" onclick="removeEmployee('${e.id}')">✕</button></td>`;
     tb.appendChild(tr);
   });
@@ -923,8 +925,9 @@ function renderEmployees(){
     el.addEventListener('change',()=>{
       const id = el.dataset.emp;
       const e = state.employees.find(x=>x.id===id); if(!e) return;
-      if(el.dataset.elig){
-        e.eligibility[el.dataset.elig] = el.checked;
+      if(el.dataset.grp){
+        // checkbox de grupo: aplica o mesmo valor a todas as chaves
+        el.dataset.grp.split(',').forEach(k=>{ e.eligibility[k] = el.checked; });
       } else {
         const f = el.dataset.field;
         if(el.type==='checkbox') e[f] = el.checked;
@@ -932,7 +935,7 @@ function renderEmployees(){
         else e[f] = el.value;
       }
       saveState();
-      refreshVacEmpOptions(); refreshCoEmpOptions();
+      refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
     });
   });
 }
@@ -944,7 +947,34 @@ function addEmployee(){
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
     maxErPerMonth:6, maxErPerWeek:null, countCompRestDay:true, notes:''
   });
-  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions();
+  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
+}
+
+function copyEmployee(){
+  const sourceId = document.getElementById('copyFromSel').value;
+  const source = state.employees.find(e=>e.id===sourceId);
+  if(!source){ flash('Selecione um funcionário para copiar.','warn'); return; }
+  const n = state.employees.length+1;
+  state.employees.push({
+    id:'e_'+Date.now(),
+    name: source.name+' (cópia)',
+    category: source.category,
+    dedicacaoPlena: source.dedicacaoPlena,
+    eligibility: Object.assign({}, source.eligibility),
+    maxErPerMonth: source.maxErPerMonth,
+    maxErPerWeek: source.maxErPerWeek,
+    countCompRestDay: source.countCompRestDay,
+    notes: source.notes
+  });
+  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
+}
+
+function refreshCopyFromOptions(){
+  const sel = document.getElementById('copyFromSel');
+  if(!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = state.employees.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+  if(prev) sel.value = prev;
 }
 function removeEmployee(id){
   if(!confirm('Remover este funcionário? Todos os turnos atribuídos serão removidos.')) return;
@@ -1353,7 +1383,7 @@ function renderAll(){
   renderCalendar();
   renderEmployees(); refreshVacEmpOptions(); renderVacations();
   renderHolidays(); refreshCoEmpOptions(); renderCarryover();
-  renderSettings(); renderStats();
+  renderSettings(); renderStats(); refreshCopyFromOptions();
 }
 
 document.getElementById('shiftMode').addEventListener('change',e=>{
