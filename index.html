@@ -669,6 +669,19 @@ function _runGeneration(alerts){
                    lastEnd:lastCarryoverEnd(e.id)};
   });
 
+  // verificar viabilidade estrutural do mínimo SU por equipa
+  const suMinCheck = state.settings.suMinPerTeam||{};
+  CATEGORIES.forEach(cat=>{
+    const min = suMinCheck[cat]||0;
+    if(min > 0){
+      const suCount = state.employees.filter(e=>e.category===cat && e.isSU).length;
+      if(suCount < min){
+        issues.push({type:'err',
+          msg:`Equipa ${CATEGORY_LABELS[cat]||cat}: mínimo diário definido como ${min} mas só existem ${suCount} elemento(s) SU disponíveis. Ajuste o mínimo ou marque mais funcionários como SU.`});
+      }
+    }
+  });
+
   for(const date of dates){
     const kind = dayKind(date);
     const slots = neededSlots(mode, kind);
@@ -783,8 +796,8 @@ function _runGeneration(alerts){
     CATEGORIES.forEach(cat=>{
       const min = suMinDay[cat]||0;
       if(min > 0 && (teamDayCount[cat]||0) < min){
-        issues.push({type:'warn',
-          msg:`${formatPT(date)}: equipa ${CATEGORY_LABELS[cat]||cat} tem ${teamDayCount[cat]||0} elemento(s) SU (mínimo: ${min}).`});
+        issues.push({type:'err',
+          msg:`${formatPT(date)}: equipa ${CATEGORY_LABELS[cat]||cat} só tem ${teamDayCount[cat]||0} elemento(s) escalado(s) (mínimo obrigatório: ${min}).`});
       }
     });
   }
@@ -1420,15 +1433,17 @@ function renderSettings(){
   // mínimo SU por equipa
   const suWrap = document.getElementById('suMinArea');
   if(suWrap){
-    suWrap.innerHTML = ['LH','LQC','LM','IFE1','IFE4'].map(cat=>`
-      <label>${CATEGORY_LABELS[cat]||cat}
-        <input type="number" min="0" max="9" data-sucat="${cat}"
-               value="${(s.suMinPerTeam||{})[cat]||0}" style="width:52px"/>
-      </label>`).join('');
-    suWrap.querySelectorAll('input[data-sucat]').forEach(el=>{
+    suWrap.innerHTML = ['LH','LQC','LM','IFE1','IFE4'].map(cat=>{
+      const cur = (s.suMinPerTeam||{})[cat]||0;
+      const opts = [0,1,2,3,4,5].map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');
+      return `<label>${CATEGORY_LABELS[cat]||cat}
+        <select data-sucat="${cat}" style="width:56px">${opts}</select>
+      </label>`;
+    }).join('');
+    suWrap.querySelectorAll('select[data-sucat]').forEach(el=>{
       el.addEventListener('change',()=>{
         s.suMinPerTeam = s.suMinPerTeam||{};
-        s.suMinPerTeam[el.dataset.sucat] = Math.max(0,Number(el.value));
+        s.suMinPerTeam[el.dataset.sucat] = Number(el.value);
         saveState();
       });
     });
