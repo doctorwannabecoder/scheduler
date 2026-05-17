@@ -775,8 +775,8 @@ function _runGeneration(alerts){
 
       // Score: menor é melhor
       candidates.sort((a,b)=>{
-        const sa = scoreEmployee(stats[a.id], slot.type, kind, a);
-        const sb = scoreEmployee(stats[b.id], slot.type, kind, b);
+        const sa = scoreEmployee(stats[a.id], slot.type, kind, a, slot.isPrev);
+        const sb = scoreEmployee(stats[b.id], slot.type, kind, b, slot.isPrev);
         return sa - sb;
       });
 
@@ -892,7 +892,13 @@ function eligibilityKey(type, kind){
   return k + (type==='day'?'Day':'Night');
 }
 
-function scoreEmployee(s, type, kind, emp){
+function scoreEmployee(s, type, kind, emp, isPrev){
+  if(isPrev){
+    // For prevention slots: balance purely by prevention count
+    let score = s.prev * 80;
+    score += (Math.abs(hashString(emp.id)) % 7);
+    return score;
+  }
   // Primary: total ER shifts (fairness across all types)
   let score = s.total * 100;
   // Secondary: same-type count — doubled weight so 3-shift type gap
@@ -1407,9 +1413,9 @@ function renderStats(){
 
   let cols;
   if(mode==='12h'){
-    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER','vs Média'];
+    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER','Horas Prev','vs Média'];
   } else {
-    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER','vs Média'];
+    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER','Horas Prev','vs Média'];
   }
   thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
 
@@ -1419,7 +1425,7 @@ function renderStats(){
   const tally = {};
   suEmps.forEach(e=> tally[e.id] = {total:0, P:0,
     weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0,
-    weekday_h24:0, weekend_h24:0, rawHours:0});
+    weekday_h24:0, weekend_h24:0, rawHours:0, prevHours:0});
 
   dates.forEach(date=>{
     const sd = state.schedule[date]; if(!sd) return;
@@ -1433,7 +1439,7 @@ function renderStats(){
         tally[id].total++; tally[id][k+'_'+slotType] = (tally[id][k+'_'+slotType]||0)+1;
         tally[id].rawHours += hrs;
       });
-      slot.prevention.forEach(id=>{ if(tally[id]) tally[id].P++; });
+      slot.prevention.forEach(id=>{ if(tally[id]){ tally[id].P++; tally[id].prevHours += 12; } });
     });
   });
 
@@ -1486,6 +1492,7 @@ function renderStats(){
     const limitTotal = e.maxErPerMonth ? e.maxErPerMonth * numMonths : null;
     cells.push(`${t.total}/${limitTotal||'∞'}`);
     cells.push(t.rawHours+'h');
+    cells.push(t.prevHours ? `<span style="color:var(--prev)">${t.prevHours}h</span>` : `<span style="color:var(--muted)">—</span>`);
     cells.push(`<div class="stat-bar-wrap">
       <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
       <span class="stat-delta" style="color:${dc}">${dStr}</span>
@@ -1501,11 +1508,13 @@ function renderStats(){
     const f = document.createElement('tfoot'); thead.closest('table').appendChild(f); return f;
   })();
   const emptyCols = mode==='12h' ? 6 : 4;
+  const avgPrevHours = suEmps.length ? suEmps.map(e=>tally[e.id].prevHours).reduce((a,b)=>a+b,0)/suEmps.length : 0;
   tf.innerHTML = `<tr style="border-top:2px solid var(--line);color:var(--muted);font-weight:600">
     <td colspan="2">Média</td>
     <td><span class="stat-num" style="font-size:14px">${avgTotal.toFixed(1)}</span></td>
     ${'<td></td>'.repeat(emptyCols)}
     <td>${avgHours.toFixed(0)}h</td>
+    <td style="color:var(--prev)">${avgPrevHours.toFixed(0)}h</td>
     <td></td>
   </tr>`;
 }
