@@ -1403,6 +1403,7 @@ function renderStats(){
 
   const suEmps = state.employees.filter(e=>e.isSU);
   const dates = enumerateDates(state.range.start, state.range.end);
+  const numMonths = new Set(dates.map(d=>d.slice(0,7))).size || 1;
   const tally = {};
   suEmps.forEach(e=> tally[e.id] = {total:0, P:0,
     weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0,
@@ -1470,7 +1471,8 @@ function renderStats(){
       cells.push(t.weekday_h24||0); cells.push(t.weekend_h24||0);
     }
     cells.push(`<strong style="color:var(--prev)">${t.P}</strong>`);
-    cells.push(`${t.total}/${e.maxErPerMonth||'∞'}`);
+    const limitTotal = e.maxErPerMonth ? e.maxErPerMonth * numMonths : null;
+    cells.push(`${t.total}/${limitTotal||'∞'}`);
     cells.push(t.rawHours+'h');
     cells.push(`<div class="stat-bar-wrap">
       <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
