@@ -1401,9 +1401,10 @@ function renderStats(){
   }
   thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
 
+  const suEmps = state.employees.filter(e=>e.isSU);
   const dates = enumerateDates(state.range.start, state.range.end);
   const tally = {};
-  state.employees.forEach(e=> tally[e.id] = {total:0, P:0,
+  suEmps.forEach(e=> tally[e.id] = {total:0, P:0,
     weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0,
     weekday_h24:0, weekend_h24:0, rawHours:0});
 
@@ -1424,20 +1425,20 @@ function renderStats(){
   });
 
   // métricas globais
-  const totals   = state.employees.map(e=>tally[e.id].total);
+  const totals   = suEmps.map(e=>tally[e.id].total);
   const avgTotal = totals.length ? totals.reduce((a,b)=>a+b,0)/totals.length : 0;
   const maxTotal = Math.max(...totals, 1);
   const minTotal = Math.min(...totals, 0);
   const gap      = maxTotal - minTotal;
   const daysScheduled = dates.filter(d=>state.schedule[d]).length;
-  const avgHours = state.employees.length
-    ? state.employees.map(e=>tally[e.id].rawHours).reduce((a,b)=>a+b,0)/state.employees.length : 0;
+  const avgHours = suEmps.length
+    ? suEmps.map(e=>tally[e.id].rawHours).reduce((a,b)=>a+b,0)/suEmps.length : 0;
 
   // cartões de resumo
   const summaryEl = document.getElementById('statsSummary');
   if(summaryEl){
     summaryEl.innerHTML = `<div class="sum-cards">
-      <div class="sum-card"><div class="sv">${state.employees.length}</div><div class="sl">Funcionários</div></div>
+      <div class="sum-card"><div class="sv">${suEmps.length}</div><div class="sl">Func. SU</div></div>
       <div class="sum-card"><div class="sv">${daysScheduled}</div><div class="sl">Dias escalados</div></div>
       <div class="sum-card"><div class="sv">${avgTotal.toFixed(1)}</div><div class="sl">Média turnos ER</div></div>
       <div class="sum-card"><div class="sv">${avgHours.toFixed(0)}h</div><div class="sl">Média horas ER</div></div>
@@ -1449,7 +1450,7 @@ function renderStats(){
   const catColor = {LH:'var(--LH)',LQC:'var(--LQC)',LM:'var(--LM)',IFE1:'var(--IFE1)',IFE4:'var(--IFE4)'};
 
   tb.innerHTML='';
-  state.employees.forEach(e=>{
+  suEmps.forEach(e=>{
     const t = tally[e.id];
     const delta = t.total - avgTotal;
     const absDelta = Math.abs(delta);
