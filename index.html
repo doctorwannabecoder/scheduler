@@ -901,11 +901,19 @@ function scoreEmployee(s, type, kind, emp, isPrev){
   }
   // Primary: total ER shifts (fairness across all types)
   let score = s.total * 100;
-  // Secondary: same-type count — doubled weight so 3-shift type gap
-  // can override a 2-shift total gap, preventing 4 vs 10 imbalances
-  if(type==='night') score += s.night * 80;
-  if(type==='day')   score += s.day   * 80;
-  if(type==='h24')   score += s.h24   * 80;
+  // Secondary: same-type balance — only meaningful for employees who
+  // can actually choose between types; restricted employees (day-only,
+  // night-only) would be unfairly penalised for doing the only type
+  // available to them, so skip it for them
+  const canDay   = emp.eligibility.weekdayDay   || emp.eligibility.weekendDay;
+  const canNight = emp.eligibility.weekdayNight || emp.eligibility.weekendNight;
+  const canH24   = emp.eligibility.weekday24    || emp.eligibility.weekend24;
+  const typeVariety = [canDay, canNight, canH24].filter(Boolean).length;
+  if(typeVariety > 1){
+    if(type==='night') score += s.night * 80;
+    if(type==='day')   score += s.day   * 80;
+    if(type==='h24')   score += s.h24   * 80;
+  }
   // Tertiary: weekend/holiday burden within nights and 24h
   if(kind==='weekend' || kind==='holiday'){
     if(type==='night') score += s.weekendN * 40;
