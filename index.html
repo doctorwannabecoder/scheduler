@@ -121,9 +121,6 @@
   <h1>🗓️ Gerador de Escalas — Laboratório</h1>
   <span class="badge" id="modeBadge">Modo: 12h</span>
   <span class="badge" id="rangeBadge">—</span>
-  <div class="spacer"></div>
-  <button class="btn secondary" onclick="saveState()">💾 Guardar</button>
-  <button class="btn warn" onclick="if(confirm('Repor dados iniciais? Toda a configuração será perdida.')){localStorage.removeItem(LS_KEY);location.reload();}">↺ Repor</button>
 </header>
 
 <div class="page-body">
@@ -133,9 +130,8 @@
   <button data-tab="estatisticas">📊 Estatísticas</button>
   <span class="nav-section">Configuração</span>
   <button data-tab="funcionarios">👤 Funcionários</button>
-  <button data-tab="ferias">🏖️ Férias / Indisp.</button>
+  <button data-tab="ferias">🏖️ Férias / Folgas</button>
   <button data-tab="feriados">📅 Feriados</button>
-  <button data-tab="anteriores">↩️ Dias anteriores</button>
   <button data-tab="definicoes">⚙️ Definições</button>
   <span class="nav-section">Dados</span>
   <button data-tab="impexp">💾 Importar / Exportar</button>
@@ -213,19 +209,33 @@
     </div>
   </section>
 
-  <!-- FÉRIAS -->
+  <!-- FÉRIAS / FOLGAS -->
   <section id="tab-ferias" class="tab">
     <div class="card">
-      <h2>Férias / Indisponibilidades</h2>
+      <h2>Férias</h2>
       <div class="row" style="margin-bottom:10px">
         <label>Funcionário <select id="vacEmp"></select></label>
         <label>Início <input type="date" id="vacStart"/></label>
         <label>Fim <input type="date" id="vacEnd"/></label>
         <label>Nota <input type="text" id="vacNote" placeholder="Opcional"/></label>
-        <button class="btn" onclick="addVacation()">+ Adicionar</button>
+        <button class="btn" onclick="addVacation('vacation')">+ Adicionar férias</button>
       </div>
       <table id="vacTable">
-        <thead><tr><th>Funcionário</th><th>Início</th><th>Fim</th><th>Nota</th><th></th></tr></thead>
+        <thead><tr><th>Funcionário</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Nota</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Folgas</h2>
+      <p class="small">Dias isolados em que o funcionário não está disponível para turnos (folga, compensação, etc.).</p>
+      <div class="row" style="margin-bottom:10px">
+        <label>Funcionário <select id="folgaEmp"></select></label>
+        <label>Data <input type="date" id="folgaDate"/></label>
+        <label>Nota <input type="text" id="folgaNote" placeholder="Opcional"/></label>
+        <button class="btn" onclick="addFolga()">+ Adicionar folga</button>
+      </div>
+      <table id="folgaTable">
+        <thead><tr><th>Funcionário</th><th>Data</th><th>Nota</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -239,6 +249,14 @@
         Páscoa, Sexta-Feira Santa e Corpo de Deus são calculados automaticamente por ano.</p>
       <table id="holFixedTable">
         <thead><tr><th>Mês-Dia</th><th>Nome</th><th>Ativo</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Tolerância de ponto</h2>
+      <p class="small">Datas habitualmente associadas a tolerância de ponto em Portugal. Não são feriados obrigatórios mas são frequentemente dispensadas em serviços públicos e hospitalares. Pode ativar/desativar individualmente. As datas móveis (Carnaval) são calculadas automaticamente.</p>
+      <table id="holTolTable">
+        <thead><tr><th>Data</th><th>Nome</th><th>Tipo</th><th>Ativo</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -257,7 +275,36 @@
   </section>
 
   <!-- DIAS ANTERIORES -->
-  <section id="tab-anteriores" class="tab">
+  <!-- ESTATÍSTICAS -->
+  <section id="tab-estatisticas" class="tab">
+    <div class="card">
+      <h2>Estatísticas por funcionário</h2>
+      <div style="overflow-x:auto">
+        <table id="statsTable">
+          <thead></thead><tbody></tbody>
+        </table>
+      </div>
+      <p class="small">Horas extra calculadas semana a semana (Segunda a Domingo).
+        Prevenção (P) é contada em separado e não entra no total de turnos ER nem no limite mensal.</p>
+    </div>
+    <div class="card">
+      <h2>Horas extra por semana</h2>
+      <div id="weeklyExtra"></div>
+    </div>
+  </section>
+
+  <!-- DEFINIÇÕES -->
+  <section id="tab-definicoes" class="tab">
+    <div class="card">
+      <h2>Necessidades de pessoal por turno</h2>
+      <div id="staffingArea"></div>
+    </div>
+    <div class="card">
+      <h2>Outras opções</h2>
+      <div class="row">
+        <label class="row"><input type="checkbox" id="setPrevCountsInterval"/> Prevenção conta para o intervalo mínimo entre turnos</label>
+      </div>
+    </div>
     <div class="card">
       <h2>Dias anteriores (carryover)</h2>
       <p class="small">Introduza os últimos turnos do mês anterior para garantir que os intervalos mínimos são respeitados.
@@ -284,47 +331,6 @@
     </div>
   </section>
 
-  <!-- ESTATÍSTICAS -->
-  <section id="tab-estatisticas" class="tab">
-    <div class="card">
-      <h2>Estatísticas por funcionário</h2>
-      <div style="overflow-x:auto">
-        <table id="statsTable">
-          <thead></thead><tbody></tbody>
-        </table>
-      </div>
-      <p class="small">Horas extra calculadas semana a semana (Segunda a Domingo).
-        Prevenção (P) é contada em separado e não entra no total de turnos ER nem no limite mensal.</p>
-    </div>
-    <div class="card">
-      <h2>Horas extra por semana</h2>
-      <div id="weeklyExtra"></div>
-    </div>
-  </section>
-
-  <!-- DEFINIÇÕES -->
-  <section id="tab-definicoes" class="tab">
-    <div class="card">
-      <h2>Necessidades de pessoal por turno</h2>
-      <div id="staffingArea"></div>
-    </div>
-    <div class="card">
-      <h2>Cálculo de horas extra (Dedicação Plena)</h2>
-      <div class="grid2">
-        <label>Referência semanal (h) <input type="number" id="setWeeklyRef" min="0" step="0.5"/></label>
-        <label>Trabalho diário normal (h) <input type="number" id="setNormalDaily" min="0" step="0.5"/></label>
-        <label>Horas do dia de descanso compensatório <input type="number" id="setCompRestHours" min="0" step="0.5"/></label>
-        <label>Valor pago por turno de prevenção (h) <input type="number" id="setPrevPaid" min="0" step="0.5"/></label>
-      </div>
-      <hr>
-      <div class="row">
-        <label class="row"><input type="checkbox" id="setDpComplement"/> DP adiciona complemento semanal (até atingir referência)</label>
-        <label class="row"><input type="checkbox" id="setGlobalCompRest"/> Contar descanso compensatório (pós-noite/24h) por defeito</label>
-        <label class="row"><input type="checkbox" id="setPrevCountsInterval"/> Prevenção conta para o intervalo mínimo</label>
-      </div>
-    </div>
-  </section>
-
   <!-- IMPORTAR / EXPORTAR -->
   <section id="tab-impexp" class="tab">
     <div class="card">
@@ -336,7 +342,22 @@
           <input type="file" accept="application/json" id="importFile" style="display:none" onchange="importJSON(event)"/>
         </label>
       </div>
-      <p class="small">Os dados são guardados automaticamente no navegador (localStorage).</p>
+      <p class="small">Os dados são guardados automaticamente no navegador (localStorage) sempre que algo é alterado.</p>
+    </div>
+    <div class="card" style="border-color:var(--err)">
+      <h2 style="color:var(--err)">Repor configuração inicial</h2>
+      <p class="small">Apaga <strong>todos</strong> os dados guardados (funcionários, escalas, configurações) e repõe os valores de fábrica. Esta ação é irreversível.</p>
+      <p class="small">Recomenda-se exportar um JSON de segurança antes de continuar.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn danger" onclick="confirmReset()">↺ Repor tudo…</button>
+      </div>
+      <div id="resetConfirmBox" style="display:none;margin-top:10px" class="alert err">
+        ⚠️ Tem a certeza? Esta operação não pode ser desfeita.<br>
+        <div class="row" style="margin-top:8px">
+          <button class="btn danger" onclick="doReset()">Sim, apagar tudo</button>
+          <button class="btn secondary" onclick="cancelReset()">Cancelar</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -376,16 +397,21 @@ const PT_HOLIDAYS_FIXED = [
   {mm:12,dd:25, name:'Natal',                       active:true}
 ];
 
+// Tolerância de ponto — datas fixas e móveis habitualmente dispensadas em PT
+const PT_TOLERANCIA_FIXED = [
+  {mm:12, dd:24, name:'Véspera de Natal',   active:true},
+  {mm:12, dd:31, name:'Véspera de Ano Novo',active:true}
+];
+
 /* --------- Estado inicial --------- */
 function defaultState(){
-  const emp = (n, cat, dp=false, elig=null, max=6, week=null) => ({
+  const emp = (n, cat, dp=false, elig=null) => ({
     id:'e_'+n, name:'E'+n, category:cat, dedicacaoPlena:dp,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
-    maxErPerMonth:max, maxErPerWeek:week, countCompRestDay:true, notes:''
+    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:''
   });
-  // E3 e E9 são apenas de dia, para teste
-  const dayOnly = {weekdayNight:false, weekendNight:false, holidayNight:false,
-                   weekday24:false, weekend24:false, holiday24:false};
+  const dayOnly = {weekdayNight:false, weekendNight:false, prevention:false,
+                   weekday24:false, weekend24:false};
   return {
     employees:[
       emp(1,'LH'), emp(2,'LH'), emp(3,'LH', true, dayOnly),
@@ -395,11 +421,12 @@ function defaultState(){
       emp(13,'FLEX'), emp(14,'FLEX')
     ],
     vacations:[],
+    folgas:[],
     holidaysFixed: JSON.parse(JSON.stringify(PT_HOLIDAYS_FIXED)),
     holidaysCustom:[],
+    toleranciaFixed: JSON.parse(JSON.stringify(PT_TOLERANCIA_FIXED)),
     settings:{
       shiftMode:'12h',
-      // Feriados usam o mesmo staffing do fim-de-semana.
       staffing:{
         weekdayDay:1, weekdayNight:1,
         weekendDay:1, weekendNight:1,
@@ -409,9 +436,9 @@ function defaultState(){
       preventionCountsForInterval:false,
       weeklyReferenceHours:40,
       normalDailyHours:7,
-      dpAddsComplement:false,        // por defeito desligado para reproduzir Exemplos A-J
+      dpAddsComplement:false,
       compRestDayHours:7,
-      globalCountCompRestDay:false,  // por defeito desligado
+      globalCountCompRestDay:false,
       preventionPaidHours:0
     },
     carryover:[],
@@ -456,8 +483,8 @@ function migrateState(parsed){
       name:e.name||'Funcionário',
       category:CATEGORIES.includes(e.category)?e.category:'FLEX',
       dedicacaoPlena:!!e.dedicacaoPlena,
-      maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:6,
-      maxErPerWeek:e.maxErPerWeek||null,
+      maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:8,
+      maxErPerWeek:(typeof e.maxErPerWeek==='number'?e.maxErPerWeek:2)||null,
       countCompRestDay:e.countCompRestDay!==false,
       notes:e.notes||''
     }, e, {
@@ -465,8 +492,10 @@ function migrateState(parsed){
     });
   });
   merged.vacations = parsed.vacations||[];
+  merged.folgas = parsed.folgas||[];
   merged.holidaysFixed = parsed.holidaysFixed||def.holidaysFixed;
   merged.holidaysCustom = parsed.holidaysCustom||[];
+  merged.toleranciaFixed = parsed.toleranciaFixed||def.toleranciaFixed;
   merged.carryover = parsed.carryover||[];
   merged.schedule = parsed.schedule||{};
   merged.range = parsed.range || def.range;
@@ -744,7 +773,8 @@ function enumerateDates(startISO, endISO){
 
 function isOnVacation(empId, dateISO){
   return state.vacations.some(v=> v.employeeId===empId &&
-    dateISO >= v.start && dateISO <= v.end);
+    dateISO >= v.start && dateISO <= v.end) ||
+    (state.folgas||[]).some(f=> f.employeeId===empId && f.date===dateISO);
 }
 
 function lastCarryoverEnd(empId){
@@ -882,7 +912,7 @@ function renderEmployees(){
       <th class="center">24h FDS</th>`;
   }
   headRow.innerHTML = `
-    <th>Nome</th><th>Categoria</th>
+    <th>Nome</th><th>Equipa</th>
     ${eligHeads}
     <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
     <th>Notas</th><th></th>`;
@@ -911,7 +941,7 @@ function renderEmployees(){
     }
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
-      <td><select data-emp="${e.id}" data-field="category">${catSel}</select></td>
+      <td><select data-emp="${e.id}" data-field="category" title="Equipa">${catSel}</select></td>
       ${eligCells}
       <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:55px"/></td>
       <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:55px"/></td>
@@ -945,9 +975,9 @@ function addEmployee(){
   state.employees.push({
     id:'e_'+Date.now(), name:'E'+n, category:'FLEX', dedicacaoPlena:false,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
-    maxErPerMonth:6, maxErPerWeek:null, countCompRestDay:true, notes:''
+    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:''
   });
-  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
+  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions(); refreshFolgaEmpOptions();
 }
 
 function copyEmployee(){
@@ -992,9 +1022,12 @@ function removeEmployee(id){
 
 /* --------- Férias --------- */
 function refreshVacEmpOptions(){
-  const sel = document.getElementById('vacEmp');
-  sel.innerHTML = state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  ['vacEmp','folgaEmp'].forEach(selId=>{
+    const sel = document.getElementById(selId); if(!sel) return;
+    sel.innerHTML = state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  });
 }
+function refreshFolgaEmpOptions(){ refreshVacEmpOptions(); }
 function addVacation(){
   const employeeId = document.getElementById('vacEmp').value;
   const start = document.getElementById('vacStart').value;
@@ -1009,10 +1042,12 @@ function addVacation(){
 function renderVacations(){
   const tb = document.querySelector('#vacTable tbody');
   tb.innerHTML='';
+  state.vacations.sort((a,b)=>a.start.localeCompare(b.start));
   state.vacations.forEach(v=>{
     const e = state.employees.find(x=>x.id===v.employeeId);
     const tr = document.createElement('tr');
     tr.innerHTML = `<td><strong>${e?e.name:'?'}</strong></td>
+      <td><span class="badge" style="background:#1e3a5f;color:#93c5fd;border-color:#3b82f6">Férias</span></td>
       <td>${formatPT(v.start)}</td><td>${formatPT(v.end)}</td>
       <td>${escapeHtml(v.note||'')}</td>
       <td><button class="btn danger" onclick="removeVacation('${v.id}')">✕</button></td>`;
@@ -1024,8 +1059,50 @@ function removeVacation(id){
   saveState(); renderVacations();
 }
 
+/* --------- Folgas --------- */
+function addFolga(){
+  const employeeId = document.getElementById('folgaEmp').value;
+  const date = document.getElementById('folgaDate').value;
+  const note = document.getElementById('folgaNote').value;
+  if(!employeeId||!date){ flash('Preencha funcionário e data.','err'); return; }
+  state.folgas = state.folgas||[];
+  state.folgas.push({id:'f_'+Date.now(), employeeId, date, note});
+  saveState(); renderFolgas();
+  document.getElementById('folgaDate').value=''; document.getElementById('folgaNote').value='';
+}
+function renderFolgas(){
+  const tb = document.querySelector('#folgaTable tbody');
+  if(!tb) return;
+  tb.innerHTML='';
+  (state.folgas||[]).sort((a,b)=>a.date.localeCompare(b.date)).forEach(f=>{
+    const e = state.employees.find(x=>x.id===f.employeeId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${e?e.name:'?'}</strong></td>
+      <td>${formatPT(f.date)}</td>
+      <td>${escapeHtml(f.note||'')}</td>
+      <td><button class="btn danger" onclick="removeFolga('${f.id}')">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function removeFolga(id){
+  state.folgas = (state.folgas||[]).filter(f=>f.id!==id);
+  saveState(); renderFolgas();
+}
+
 /* --------- Feriados --------- */
+function toleranciaForYear(year){
+  const list = [];
+  (state.toleranciaFixed||[]).forEach(h=>{
+    if(h.active) list.push({date:iso(new Date(year,h.mm-1,h.dd)), name:h.name, kind:'fixo'});
+  });
+  // Carnaval: Terça-feira = Páscoa - 47 dias
+  const easter = easterSunday(year);
+  const carnaval = addDays(easter,-47);
+  list.push({date:iso(carnaval), name:'Terça-feira de Carnaval', kind:'móvel', year});
+  return list;
+}
 function renderHolidays(){
+  // Feriados fixos nacionais
   const tb = document.querySelector('#holFixedTable tbody');
   tb.innerHTML='';
   state.holidaysFixed.forEach((h,i)=>{
@@ -1045,6 +1122,44 @@ function renderHolidays(){
       saveState();
     });
   });
+  // Tolerância de ponto — mostrar para o ano da escala ou ano atual
+  const tolYear = state.range?.start ? parseInt(state.range.start,10) : new Date().getFullYear();
+  const tolList = toleranciaForYear(tolYear);
+  const tolTb = document.querySelector('#holTolTable tbody');
+  if(tolTb){
+    tolTb.innerHTML='';
+    // Fixas (configuráveis)
+    (state.toleranciaFixed||[]).forEach((h,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${String(h.mm).padStart(2,'0')}-${String(h.dd).padStart(2,'0')}</td>
+        <td><input type="text" value="${escapeHtml(h.name)}" data-ti="${i}" data-tf="name" style="width:200px"/></td>
+        <td><span class="badge">Fixo</span></td>
+        <td class="center"><input type="checkbox" data-ti="${i}" data-tf="active" ${h.active?'checked':''}/></td>`;
+      tolTb.appendChild(tr);
+    });
+    // Carnaval (móvel, informativo)
+    const carnavalDate = tolList.find(t=>t.name.includes('Carnaval'));
+    if(carnavalDate){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${formatPT(carnavalDate.date)}</td>
+        <td>${carnavalDate.name}</td>
+        <td><span class="badge">Móvel</span></td>
+        <td class="center"><span class="small">auto</span></td>`;
+      tolTb.appendChild(tr);
+    }
+    tolTb.querySelectorAll('input').forEach(el=>{
+      el.addEventListener('change',()=>{
+        const h = (state.toleranciaFixed||[])[parseInt(el.dataset.ti,10)];
+        if(!h) return;
+        if(el.type==='checkbox') h[el.dataset.tf] = el.checked;
+        else h[el.dataset.tf] = el.value;
+        saveState();
+      });
+    });
+  }
+  // Feriados personalizados
   const cb = document.querySelector('#holCustomTable tbody');
   cb.innerHTML='';
   state.holidaysCustom.forEach((h,i)=>{
@@ -1284,12 +1399,6 @@ function renderSettings(){
     });
   });
   // outros campos
-  document.getElementById('setWeeklyRef').value = s.weeklyReferenceHours;
-  document.getElementById('setNormalDaily').value = s.normalDailyHours;
-  document.getElementById('setCompRestHours').value = s.compRestDayHours;
-  document.getElementById('setPrevPaid').value = s.preventionPaidHours;
-  document.getElementById('setDpComplement').checked = s.dpAddsComplement;
-  document.getElementById('setGlobalCompRest').checked = s.globalCountCompRestDay;
   document.getElementById('setPrevCountsInterval').checked = s.preventionCountsForInterval;
 }
 function numField(key,label,val){
@@ -1297,30 +1406,16 @@ function numField(key,label,val){
 }
 
 function bindSettings(){
-  const map = {
-    setWeeklyRef:'weeklyReferenceHours',
-    setNormalDaily:'normalDailyHours',
-    setCompRestHours:'compRestDayHours',
-    setPrevPaid:'preventionPaidHours'
-  };
-  for(const id in map){
-    document.getElementById(id).addEventListener('change',e=>{
-      state.settings[map[id]] = Number(e.target.value);
-      saveState();
-    });
-  }
-  const cbs = {
-    setDpComplement:'dpAddsComplement',
-    setGlobalCompRest:'globalCountCompRestDay',
-    setPrevCountsInterval:'preventionCountsForInterval'
-  };
-  for(const id in cbs){
-    document.getElementById(id).addEventListener('change',e=>{
-      state.settings[cbs[id]] = e.target.checked;
-      saveState();
-    });
-  }
+  document.getElementById('setPrevCountsInterval').addEventListener('change',e=>{
+    state.settings.preventionCountsForInterval = e.target.checked;
+    saveState();
+  });
 }
+
+/* --------- Repor --------- */
+function confirmReset(){ document.getElementById('resetConfirmBox').style.display='block'; }
+function cancelReset(){ document.getElementById('resetConfirmBox').style.display='none'; }
+function doReset(){ localStorage.removeItem(LS_KEY); location.reload(); }
 
 /* --------- Import / Export --------- */
 function exportJSON(){
@@ -1336,11 +1431,7 @@ function importJSON(ev){
   reader.onload = ()=>{
     try{
       const obj = JSON.parse(reader.result);
-      const def = defaultState();
-      state = Object.assign(def, obj, {
-        settings: Object.assign(def.settings, obj.settings||{},
-                  {staffing: Object.assign(def.settings.staffing, (obj.settings||{}).staffing||{})}),
-      });
+      state = migrateState(obj);
       saveState(); renderAll();
       flash('Dados importados com sucesso.','ok');
     }catch(e){ flash('Erro a importar JSON: '+e.message,'err'); }
@@ -1364,11 +1455,10 @@ document.querySelectorAll('#nav button').forEach(b=>{
     b.classList.add('active');
     document.getElementById('tab-'+b.dataset.tab).classList.add('active');
     if(b.dataset.tab==='funcionarios') renderEmployees();
-    if(b.dataset.tab==='ferias'){ refreshVacEmpOptions(); renderVacations(); }
+    if(b.dataset.tab==='ferias'){ refreshVacEmpOptions(); renderVacations(); renderFolgas(); }
     if(b.dataset.tab==='feriados') renderHolidays();
-    if(b.dataset.tab==='anteriores'){ refreshCoEmpOptions(); renderCarryover(); }
     if(b.dataset.tab==='estatisticas') renderStats();
-    if(b.dataset.tab==='definicoes') renderSettings();
+    if(b.dataset.tab==='definicoes'){ renderSettings(); refreshCoEmpOptions(); renderCarryover(); }
   });
 });
 
@@ -1381,7 +1471,7 @@ function renderAll(){
   document.getElementById('rangeBadge').textContent = formatPT(state.range.start)+' → '+formatPT(state.range.end);
   if(!state.calCursor) state.calCursor = state.range.start;
   renderCalendar();
-  renderEmployees(); refreshVacEmpOptions(); renderVacations();
+  renderEmployees(); refreshVacEmpOptions(); renderVacations(); renderFolgas(); refreshFolgaEmpOptions();
   renderHolidays(); refreshCoEmpOptions(); renderCarryover();
   renderSettings(); renderStats(); refreshCopyFromOptions();
 }
