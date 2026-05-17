@@ -479,7 +479,7 @@ function defaultState(){
       },
       minHoursBetweenShifts:48,
       preventionCountsForInterval:false,
-      suMinPerTeam:{LH:1, LQC:1, LM:1, IFE1:0, IFE4:0}
+      suMinPerTeam:{LH:1, LQC:1, LM:1}
     },
     carryover:[],
     schedule:{},   // {date:{day:{employees:[],prevention:[]}, night:{...}, h24:{...}}}
@@ -671,7 +671,7 @@ function _runGeneration(alerts){
 
   // verificar viabilidade estrutural do mínimo SU por equipa
   const suMinCheck = state.settings.suMinPerTeam||{};
-  CATEGORIES.forEach(cat=>{
+  ['LH','LQC','LM'].forEach(cat=>{
     const min = suMinCheck[cat]||0;
     if(min > 0){
       const suCount = state.employees.filter(e=>e.category===cat && e.isSU).length;
@@ -793,7 +793,7 @@ function _runGeneration(alerts){
     }
     // verificar mínimo SU por equipa para este dia
     const suMinDay = state.settings.suMinPerTeam||{};
-    CATEGORIES.forEach(cat=>{
+    ['LH','LQC','LM'].forEach(cat=>{
       const min = suMinDay[cat]||0;
       if(min > 0 && (teamDayCount[cat]||0) < min){
         issues.push({type:'err',
@@ -1433,7 +1433,7 @@ function renderSettings(){
   // mínimo SU por equipa
   const suWrap = document.getElementById('suMinArea');
   if(suWrap){
-    suWrap.innerHTML = ['LH','LQC','LM','IFE1','IFE4'].map(cat=>{
+    suWrap.innerHTML = ['LH','LQC','LM'].map(cat=>{
       const cur = (s.suMinPerTeam||{})[cat]||0;
       const opts = [0,1,2,3,4,5].map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');
       return `<label>${CATEGORY_LABELS[cat]||cat}
