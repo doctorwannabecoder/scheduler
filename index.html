@@ -1054,8 +1054,7 @@ function renderEmployees(){
       <th class="center" title="Semana Dia">Sem D</th>
       <th class="center" title="Semana Noite">Sem N</th>
       <th class="center" title="Fim-de-semana Dia">FDS D</th>
-      <th class="center" title="Fim-de-semana Noite">FDS N</th>
-      <th class="center" title="Prevenção">P</th>`;
+      <th class="center" title="Fim-de-semana Noite — inclui Prevenção">FDS N</th>`;
   } else {
     eligHeads = `
       <th class="center">24h Sem.</th>
@@ -1079,8 +1078,7 @@ function renderEmployees(){
         <td class="center">${cb('weekdayDay')}</td>
         <td class="center">${cb('weekdayNight')}</td>
         <td class="center">${cb('weekendDay')}</td>
-        <td class="center">${cb('weekendNight')}</td>
-        <td class="center">${cb('prevention')}</td>`;
+        <td class="center">${cb('weekendNight')}</td>`;
     } else {
       eligCells = `
         <td class="center">${cb('weekday24')}</td>
@@ -1105,6 +1103,8 @@ function renderEmployees(){
       const e = state.employees.find(x=>x.id===id); if(!e) return;
       if(el.dataset.elig){
         e.eligibility[el.dataset.elig] = el.checked;
+        // FDS N e Prevenção são sempre iguais
+        if(el.dataset.elig==='weekendNight') e.eligibility.prevention = el.checked;
       } else {
         const f = el.dataset.field;
         if(el.type==='checkbox'){
