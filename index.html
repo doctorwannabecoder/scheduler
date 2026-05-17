@@ -130,6 +130,15 @@
   .right{text-align:right}
   .center{text-align:center}
   .pill{display:inline-block;padding:1px 6px;border-radius:6px;background:#0b1220;border:1px solid var(--line);font-size:11px;margin:0 2px}
+  /* ---- STATS SUMMARY ---- */
+  .sum-cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  .sum-card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 16px;min-width:120px;text-align:center}
+  .sum-card .sv{font-size:22px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+  .sum-card .sl{font-size:11px;color:var(--muted);margin-top:3px}
+  .stat-bar-wrap{display:flex;align-items:center;gap:6px}
+  .stat-bar-bg{width:60px;height:7px;border-radius:4px;background:var(--line);flex-shrink:0}
+  .stat-bar-fill{height:100%;border-radius:4px}
+  .stat-delta{font-size:10px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -296,6 +305,7 @@
   <section id="tab-estatisticas" class="tab">
     <div class="card">
       <h2>Estatísticas por funcionário</h2>
+      <div id="statsSummary"></div>
       <div style="overflow-x:auto">
         <table id="statsTable">
           <thead></thead><tbody></tbody>
@@ -1380,44 +1390,74 @@ function removeCarryover(id){
 /* --------- Estatísticas --------- */
 function renderStats(){
   const thead = document.querySelector('#statsTable thead');
-  const tb = document.querySelector('#statsTable tbody');
-  const mode = state.settings.shiftMode;
+  const tb    = document.querySelector('#statsTable tbody');
+  const mode  = state.settings.shiftMode;
 
   let cols;
   if(mode==='12h'){
-    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER'];
+    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER','vs Média'];
   } else {
-    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER'];
+    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER','vs Média'];
   }
   thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
 
   const dates = enumerateDates(state.range.start, state.range.end);
-  // contagens por funcionário
   const tally = {};
   state.employees.forEach(e=> tally[e.id] = {total:0, P:0,
-    weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0, holiday_day:0, holiday_night:0,
-    weekday_h24:0, weekend_h24:0, holiday_h24:0,
-    rawHours:0});
+    weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0,
+    weekday_h24:0, weekend_h24:0, rawHours:0});
 
   dates.forEach(date=>{
     const sd = state.schedule[date]; if(!sd) return;
     const kind = dayKind(date);
-    const k = kind==='weekday'?'weekday':kind==='weekend'?'weekend':'holiday';
+    const k = kind==='weekday'?'weekday':'weekend';
     ['day','night','h24'].forEach(slotType=>{
       const slot = sd[slotType]; if(!slot) return;
       const hrs = slotType==='h24'?24:12;
       slot.employees.forEach(id=>{
+        if(!tally[id]) return;
         tally[id].total++; tally[id][k+'_'+slotType] = (tally[id][k+'_'+slotType]||0)+1;
         tally[id].rawHours += hrs;
       });
-      slot.prevention.forEach(id=>{ tally[id].P++; });
+      slot.prevention.forEach(id=>{ if(tally[id]) tally[id].P++; });
     });
   });
+
+  // métricas globais
+  const totals   = state.employees.map(e=>tally[e.id].total);
+  const avgTotal = totals.length ? totals.reduce((a,b)=>a+b,0)/totals.length : 0;
+  const maxTotal = Math.max(...totals, 1);
+  const minTotal = Math.min(...totals, 0);
+  const gap      = maxTotal - minTotal;
+  const daysScheduled = dates.filter(d=>state.schedule[d]).length;
+  const avgHours = state.employees.length
+    ? state.employees.map(e=>tally[e.id].rawHours).reduce((a,b)=>a+b,0)/state.employees.length : 0;
+
+  // cartões de resumo
+  const summaryEl = document.getElementById('statsSummary');
+  if(summaryEl){
+    summaryEl.innerHTML = `<div class="sum-cards">
+      <div class="sum-card"><div class="sv">${state.employees.length}</div><div class="sl">Funcionários</div></div>
+      <div class="sum-card"><div class="sv">${daysScheduled}</div><div class="sl">Dias escalados</div></div>
+      <div class="sum-card"><div class="sv">${avgTotal.toFixed(1)}</div><div class="sl">Média turnos ER</div></div>
+      <div class="sum-card"><div class="sv">${avgHours.toFixed(0)}h</div><div class="sl">Média horas ER</div></div>
+      <div class="sum-card"><div class="sv">${gap}</div><div class="sl">Diferença máx.</div></div>
+    </div>`;
+  }
+
+  // cor do laboratório para a barra
+  const catColor = {LH:'var(--LH)',LQC:'var(--LQC)',LM:'var(--LM)',IFE1:'var(--IFE1)',IFE4:'var(--IFE4)'};
 
   tb.innerHTML='';
   state.employees.forEach(e=>{
     const t = tally[e.id];
-    const tr = document.createElement('tr');
+    const delta = t.total - avgTotal;
+    const absDelta = Math.abs(delta);
+    const dc = absDelta<=1?'var(--ok)':absDelta<=3?'var(--warn)':'var(--err)';
+    const dStr = (delta>=0?'+':'')+delta.toFixed(1);
+    const barPct = maxTotal>0 ? Math.round(t.total/maxTotal*100) : 0;
+    const barColor = catColor[e.category]||'var(--accent)';
+
     const cells = [];
     cells.push(`<strong>${e.name}</strong>`);
     cells.push(`<span class="chip ${e.category}">${CATEGORY_LABELS[e.category]||e.category}</span>`);
@@ -1431,9 +1471,28 @@ function renderStats(){
     cells.push(`<strong style="color:var(--prev)">${t.P}</strong>`);
     cells.push(`${t.total}/${e.maxErPerMonth||'∞'}`);
     cells.push(t.rawHours+'h');
+    cells.push(`<div class="stat-bar-wrap">
+      <div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+      <span class="stat-delta" style="color:${dc}">${dStr}</span>
+    </div>`);
+
+    const tr = document.createElement('tr');
     tr.innerHTML = cells.map(c=>`<td>${c}</td>`).join('');
     tb.appendChild(tr);
   });
+
+  // linha de média no rodapé
+  const tf = thead.closest('table').querySelector('tfoot') || (() => {
+    const f = document.createElement('tfoot'); thead.closest('table').appendChild(f); return f;
+  })();
+  const emptyCols = mode==='12h' ? 6 : 4;
+  tf.innerHTML = `<tr style="border-top:2px solid var(--line);color:var(--muted);font-weight:600">
+    <td colspan="2">Média</td>
+    <td><span class="stat-num" style="font-size:14px">${avgTotal.toFixed(1)}</span></td>
+    ${'<td></td>'.repeat(emptyCols)}
+    <td>${avgHours.toFixed(0)}h</td>
+    <td></td>
+  </tr>`;
 }
 
 /* --------- Definições --------- */
