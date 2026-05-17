@@ -15,7 +15,7 @@
     --LH:#60a5fa;   /* azul */
     --LQC:#f472b6;  /* rosa */
     --LM:#34d399;   /* verde */
-    --FLEX:#fbbf24; /* amarelo */
+    --Interno:#fbbf24; /* amarelo */
     --day:#0ea5e9; --night:#7c3aed; --h24:#f43f5e; --prev:#9ca3af;
   }
   :root{ --sidebar-w:210px; --header-h:53px; }
@@ -78,7 +78,7 @@
   .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;
     font-size:12px;font-weight:600;color:#0b1220;margin:2px}
   .chip.LH{background:var(--LH)} .chip.LQC{background:var(--LQC)}
-  .chip.LM{background:var(--LM)} .chip.FLEX{background:var(--FLEX)}
+  .chip.LM{background:var(--LM)} .chip.Interno{background:var(--Interno)}
   .chip.prev{background:var(--prev);color:#1c1300}
   .badge{font-size:11px;padding:1px 5px;border-radius:6px;background:#0b1220;border:1px solid var(--line);color:var(--muted)}
   .badge.dp{background:#3b82f6;color:#fff;border-color:#3b82f6}
@@ -173,7 +173,7 @@
         <span class="spacer"></span>
         <span class="small">Legenda:
           <span class="chip LH">LH</span><span class="chip LQC">LQC</span>
-          <span class="chip LM">LM</span><span class="chip FLEX">FLEX</span>
+          <span class="chip LM">LM</span><span class="chip Interno">Interno</span>
           <span class="pill" style="border-left:3px solid var(--day)">Dia</span>
           <span class="pill" style="border-left:3px solid var(--night)">Noite</span>
           <span class="pill" style="border-left:3px solid var(--h24)">24h</span>
@@ -302,7 +302,7 @@
     <div class="card">
       <h2>Outras opções</h2>
       <div class="row">
-        <label class="row"><input type="checkbox" id="setPrevCountsInterval"/> Prevenção conta para o intervalo mínimo entre turnos</label>
+        <label style="flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--text)"><input type="checkbox" id="setPrevCountsInterval"/> Prevenção conta para o intervalo mínimo entre turnos</label>
       </div>
     </div>
     <div class="card">
@@ -373,7 +373,7 @@
 
 const LS_KEY = 'escala_lab_v1';
 
-const CATEGORIES = ['LH','LQC','LM','FLEX'];
+const CATEGORIES = ['LH','LQC','LM','Interno'];
 
 // Elegibilidade simplificada: feriados usam as mesmas permissões que fins-de-semana.
 // As 3 colunas agrupadas são: [Sem D] | [Sem N + FDS D] | [FDS N + P]
@@ -405,10 +405,11 @@ const PT_TOLERANCIA_FIXED = [
 
 /* --------- Estado inicial --------- */
 function defaultState(){
-  const emp = (n, cat, dp=false, elig=null) => ({
+  const emp = (n, cat, dp=false, elig=null, interno=null) => ({
     id:'e_'+n, name:'E'+n, category:cat, dedicacaoPlena:dp,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
-    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:''
+    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:'',
+    isInterno: interno !== null ? interno : (cat === 'Interno')
   });
   const dayOnly = {weekdayNight:false, weekendNight:false, prevention:false,
                    weekday24:false, weekend24:false};
@@ -417,20 +418,24 @@ function defaultState(){
       emp(1,'LH'), emp(2,'LH'), emp(3,'LH', true, dayOnly),
       emp(4,'LQC'), emp(5,'LQC'), emp(6,'LQC'),
       emp(7,'LM'), emp(8,'LM'), emp(9,'LM', false, dayOnly),
-      emp(10,'FLEX'), emp(11,'FLEX'), emp(12,'FLEX'),
-      emp(13,'FLEX'), emp(14,'FLEX')
+      emp(10,'Interno'), emp(11,'Interno'), emp(12,'Interno'),
+      emp(13,'Interno'), emp(14,'Interno')
     ],
     vacations:[],
     folgas:[],
     holidaysFixed: JSON.parse(JSON.stringify(PT_HOLIDAYS_FIXED)),
     holidaysCustom:[],
     toleranciaFixed: JSON.parse(JSON.stringify(PT_TOLERANCIA_FIXED)),
+    toleranciaMovel:[{name:'Terça-feira de Carnaval', active:true}],
     settings:{
       shiftMode:'12h',
       staffing:{
-        weekdayDay:1, weekdayNight:1,
-        weekendDay:1, weekendNight:1,
-        weekday24:1,  weekend24:1
+        weekdayDay:1,    weekdayDayPrev:0,
+        weekdayNight:1,  weekdayNightPrev:0,
+        weekendDay:1,    weekendDayPrev:0,
+        weekendNight:1,  weekendNightPrev:0,
+        weekday24:1,     weekday24Prev:0,
+        weekend24:1,     weekend24Prev:0
       },
       minHoursBetweenShifts:24,
       preventionCountsForInterval:false,
@@ -478,16 +483,20 @@ function migrateState(parsed){
   merged.settings.staffing = Object.assign({}, def.settings.staffing, (parsed.settings||{}).staffing||{});
   // funcionários — garantir todas as chaves de elegibilidade
   merged.employees = (parsed.employees||def.employees).map(e=>{
+    // migrate old 'FLEX' category to 'Interno'
+    const cat = e.category === 'FLEX' ? 'Interno' : (CATEGORIES.includes(e.category) ? e.category : 'Interno');
     return Object.assign({
       id:e.id||('e_'+Math.random().toString(36).slice(2)),
       name:e.name||'Funcionário',
-      category:CATEGORIES.includes(e.category)?e.category:'FLEX',
+      category:cat,
       dedicacaoPlena:!!e.dedicacaoPlena,
       maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:8,
       maxErPerWeek:(typeof e.maxErPerWeek==='number'?e.maxErPerWeek:2)||null,
       countCompRestDay:e.countCompRestDay!==false,
-      notes:e.notes||''
+      notes:e.notes||'',
+      isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (e.category==='Interno'||e.category==='FLEX')
     }, e, {
+      category: cat,
       eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, e.eligibility||{})
     });
   });
@@ -496,6 +505,7 @@ function migrateState(parsed){
   merged.holidaysFixed = parsed.holidaysFixed||def.holidaysFixed;
   merged.holidaysCustom = parsed.holidaysCustom||[];
   merged.toleranciaFixed = parsed.toleranciaFixed||def.toleranciaFixed;
+  merged.toleranciaMovel = parsed.toleranciaMovel||def.toleranciaMovel;
   merged.carryover = parsed.carryover||[];
   merged.schedule = parsed.schedule||{};
   merged.range = parsed.range || def.range;
@@ -632,23 +642,25 @@ function _runGeneration(alerts){
                             h24:{employees:[],prevention:[]}};
 
     for(const slot of slots){
-      const win = shiftWindow(date, slot.type);
+      const effectiveType = slot.isPrev ? 'prevention' : slot.type;
+      const win = shiftWindow(date, effectiveType);
       const required = slot.required;
-      const eligKey = eligibilityKey(slot.type, kind);
+      const eligKey = slot.isPrev ? 'prevention' : eligibilityKey(slot.type, kind);
 
       // Selecionar candidatos
       const candidates = state.employees.filter(e=>{
         if(!e.eligibility[eligKey]) return false;
         if(isOnVacation(e.id, date)) return false;
-        // limite mensal
-        const month = date.slice(0,7);
-        const monthCount = stats[e.id].byMonth[month]||0;
-        if(monthCount >= (e.maxErPerMonth||999)) return false;
-        // limite semanal
-        if(e.maxErPerWeek){
-          const wk = isoWeekKey(date);
-          const wkCount = stats[e.id].byWeek[wk]||0;
-          if(wkCount >= e.maxErPerWeek) return false;
+        // limites mensais/semanais apenas para turnos normais (não prevenção)
+        if(!slot.isPrev){
+          const month = date.slice(0,7);
+          const monthCount = stats[e.id].byMonth[month]||0;
+          if(monthCount >= (e.maxErPerMonth||999)) return false;
+          if(e.maxErPerWeek){
+            const wk = isoWeekKey(date);
+            const wkCount = stats[e.id].byWeek[wk]||0;
+            if(wkCount >= e.maxErPerWeek) return false;
+          }
         }
         // já está atribuído nalgum turno desse dia?
         const sd = state.schedule[date];
@@ -673,35 +685,56 @@ function _runGeneration(alerts){
 
       const need = Math.max(0, Number(required)||0);
       totalRequired += need;
-      const chosen = candidates.slice(0, need);
+
+      // Escolher candidatos aplicando constraint Interno: máx. 1 Interno por turno normal
+      const chosen = [];
+      let internoChosen = false;
+      for(const c of candidates){
+        if(chosen.length >= need) break;
+        if(!slot.isPrev && c.isInterno && internoChosen) continue;
+        chosen.push(c);
+        if(!slot.isPrev && c.isInterno) internoChosen = true;
+      }
+
       totalAssigned += chosen.length;
       if(chosen.length < need){
+        const label = slotLabel(slot.type) + (slot.isPrev ? ' Prev' : '');
         issues.push({type:'err',
-          msg:`Não foi possível preencher ${need - chosen.length} lugar(es) em ${formatPT(date)} (${slotLabel(slot.type)}). `+
+          msg:`Não foi possível preencher ${need - chosen.length} lugar(es) em ${formatPT(date)} (${label}). `+
               `Verifique elegibilidade, férias, limites mensais ou intervalo mínimo.`});
       }
-      const target = state.schedule[date][slotKey(slot.type)].employees;
+
+      // Adicionar ao array correto: employees ou prevention
+      const target = slot.isPrev
+        ? state.schedule[date][slotKey(slot.type)].prevention
+        : state.schedule[date][slotKey(slot.type)].employees;
+
       chosen.forEach(e=>{
         target.push(e.id);
-        // atualizar contagens
-        const s = stats[e.id];
-        s.total++;
-        s[slot.type==='h24'?'h24':slot.type]++;
-        if(kind==='weekend' && slot.type==='night') s.weekendN++;
-        if(kind==='holiday' && slot.type==='night') s.holidayN++;
-        const m = date.slice(0,7); s.byMonth[m] = (s.byMonth[m]||0)+1;
-        const wk = isoWeekKey(date); s.byWeek[wk] = (s.byWeek[wk]||0)+1;
-        s.lastEnd = win.end;
+        const st = stats[e.id];
+        if(slot.isPrev){
+          st.prev++;
+        } else {
+          st.total++;
+          st[slot.type==='h24'?'h24':slot.type]++;
+          if(kind==='weekend' && slot.type==='night') st.weekendN++;
+          if(kind==='holiday' && slot.type==='night') st.holidayN++;
+          const m = date.slice(0,7); st.byMonth[m] = (st.byMonth[m]||0)+1;
+          const wk = isoWeekKey(date); st.byWeek[wk] = (st.byWeek[wk]||0)+1;
+        }
+        st.lastEnd = win.end;
       });
 
-      // verificar quem está perto do limite
-      chosen.forEach(e=>{
-        const m = date.slice(0,7);
-        if((stats[e.id].byMonth[m]||0) === (e.maxErPerMonth||999)){
-          issues.push({type:'warn',
-            msg:`${e.name} atingiu o limite mensal (${e.maxErPerMonth}) em ${m}.`});
-        }
-      });
+      // verificar quem está perto do limite (apenas turnos normais)
+      if(!slot.isPrev){
+        chosen.forEach(e=>{
+          const m = date.slice(0,7);
+          if((stats[e.id].byMonth[m]||0) === (e.maxErPerMonth||999)){
+            issues.push({type:'warn',
+              msg:`${e.name} atingiu o limite mensal (${e.maxErPerMonth}) em ${m}.`});
+          }
+        });
+      }
     }
   }
 
@@ -723,15 +756,18 @@ function _runGeneration(alerts){
 
 function neededSlots(mode, kind){
   const s = state.settings.staffing;
-  // Feriados são tratados como fins-de-semana para staffing e elegibilidade.
   const ek = (kind==='weekday') ? 'weekday' : 'weekend';
+  const slots = [];
   if(mode==='24h'){
-    return [{type:'h24', required:s[ek+'24']}];
+    if((s[ek+'24']||0)>0)     slots.push({type:'h24',   required:s[ek+'24'],          isPrev:false});
+    if((s[ek+'24Prev']||0)>0) slots.push({type:'h24',   required:s[ek+'24Prev'],      isPrev:true});
+  } else {
+    if((s[ek+'Day']||0)>0)      slots.push({type:'day',   required:s[ek+'Day'],        isPrev:false});
+    if((s[ek+'DayPrev']||0)>0)  slots.push({type:'day',   required:s[ek+'DayPrev'],   isPrev:true});
+    if((s[ek+'Night']||0)>0)    slots.push({type:'night', required:s[ek+'Night'],      isPrev:false});
+    if((s[ek+'NightPrev']||0)>0)slots.push({type:'night', required:s[ek+'NightPrev'], isPrev:true});
   }
-  return [
-    {type:'day',   required:s[ek+'Day']},
-    {type:'night', required:s[ek+'Night']}
-  ];
+  return slots;
 }
 function slotKey(type){ return type==='h24'?'h24':type; }
 function slotLabel(type){ return type==='day'?'Dia':type==='night'?'Noite':type==='h24'?'24h':'Prev'; }
@@ -753,8 +789,8 @@ function scoreEmployee(s, type, kind, emp){
     if(type==='night') score += s.weekendN*20;
     if(type==='h24')   score += s.weekendN*20;
   }
-  // preferir FLEX (residentes) como cobertura flexível quando empatado
-  if(emp.category==='FLEX') score -= 2;
+  // preferir Internos como cobertura flexível quando empatado
+  if(emp.isInterno) score -= 2;
   // pequena perturbação determinística para evitar empates persistentes
   score += (Math.abs(hashString(emp.id)) % 7);
   return score;
@@ -913,6 +949,7 @@ function renderEmployees(){
   }
   headRow.innerHTML = `
     <th>Nome</th><th>Equipa</th>
+    <th class="center" title="Residente interno — pairing constraint: máx. 1 por turno">Int.</th>
     ${eligHeads}
     <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
     <th>Notas</th><th></th>`;
@@ -942,6 +979,7 @@ function renderEmployees(){
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
       <td><select data-emp="${e.id}" data-field="category" title="Equipa">${catSel}</select></td>
+      <td class="center"><input type="checkbox" data-emp="${e.id}" data-field="isInterno" ${e.isInterno?'checked':''}/></td>
       ${eligCells}
       <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:55px"/></td>
       <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:55px"/></td>
@@ -973,9 +1011,10 @@ function renderEmployees(){
 function addEmployee(){
   const n = state.employees.length+1;
   state.employees.push({
-    id:'e_'+Date.now(), name:'E'+n, category:'FLEX', dedicacaoPlena:false,
+    id:'e_'+Date.now(), name:'E'+n, category:'Interno', dedicacaoPlena:false,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
-    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:''
+    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:'',
+    isInterno: true
   });
   saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions(); refreshFolgaEmpOptions();
 }
@@ -1096,9 +1135,12 @@ function toleranciaForYear(year){
     if(h.active) list.push({date:iso(new Date(year,h.mm-1,h.dd)), name:h.name, kind:'fixo'});
   });
   // Carnaval: Terça-feira = Páscoa - 47 dias
-  const easter = easterSunday(year);
-  const carnaval = addDays(easter,-47);
-  list.push({date:iso(carnaval), name:'Terça-feira de Carnaval', kind:'móvel', year});
+  const carnavalEntry = (state.toleranciaMovel||[]).find(t=>t.name.includes('Carnaval'));
+  if(!carnavalEntry || carnavalEntry.active){
+    const easter = easterSunday(year);
+    const carnaval = addDays(easter,-47);
+    list.push({date:iso(carnaval), name:'Terça-feira de Carnaval', kind:'móvel', year});
+  }
   return list;
 }
 function renderHolidays(){
@@ -1138,16 +1180,29 @@ function renderHolidays(){
         <td class="center"><input type="checkbox" data-ti="${i}" data-tf="active" ${h.active?'checked':''}/></td>`;
       tolTb.appendChild(tr);
     });
-    // Carnaval (móvel, informativo)
-    const carnavalDate = tolList.find(t=>t.name.includes('Carnaval'));
-    if(carnavalDate){
+    // Carnaval (móvel, activável)
+    const carnavalEntry = (state.toleranciaMovel||[]).find(t=>t.name.includes('Carnaval'));
+    const carnavalActive = !carnavalEntry || carnavalEntry.active;
+    const carnavalDate = toleranciaForYear(tolYear).find(t=>t.name.includes('Carnaval'));
+    {
       const tr = document.createElement('tr');
+      const dateStr = carnavalDate ? formatPT(carnavalDate.date) : '—';
       tr.innerHTML = `
-        <td>${formatPT(carnavalDate.date)}</td>
-        <td>${carnavalDate.name}</td>
+        <td>${dateStr}</td>
+        <td>Terça-feira de Carnaval</td>
         <td><span class="badge">Móvel</span></td>
-        <td class="center"><span class="small">auto</span></td>`;
+        <td class="center"><input type="checkbox" id="carnavalActive" ${carnavalActive?'checked':''}/></td>`;
       tolTb.appendChild(tr);
+    }
+    const carnavalCb = tolTb.querySelector('#carnavalActive');
+    if(carnavalCb){
+      carnavalCb.addEventListener('change',()=>{
+        state.toleranciaMovel = state.toleranciaMovel||[];
+        const entry = state.toleranciaMovel.find(t=>t.name.includes('Carnaval'));
+        if(entry) entry.active = carnavalCb.checked;
+        else state.toleranciaMovel.push({name:'Terça-feira de Carnaval', active:carnavalCb.checked});
+        saveState();
+      });
     }
     tolTb.querySelectorAll('input').forEach(el=>{
       el.addEventListener('change',()=>{
@@ -1374,35 +1429,43 @@ function shouldCountCompRest(emp){
 /* --------- Definições --------- */
 function renderSettings(){
   const s = state.settings;
+  const sf = state.settings.staffing;
   const wrap = document.getElementById('staffingArea');
   if(s.shiftMode==='12h'){
     wrap.innerHTML = `
       <div class="grid2">
-        ${numField('weekdayDay','Dia útil — DIA',s.staffing.weekdayDay)}
-        ${numField('weekdayNight','Dia útil — NOITE',s.staffing.weekdayNight)}
-        ${numField('weekendDay','Fim-de-semana — DIA',s.staffing.weekendDay)}
-        ${numField('weekendNight','Fim-de-semana — NOITE',s.staffing.weekendNight)}
+        ${staffField('weekdayDay','Dia útil — DIA',sf.weekdayDay,'weekdayDayPrev',sf.weekdayDayPrev||0)}
+        ${staffField('weekdayNight','Dia útil — NOITE',sf.weekdayNight,'weekdayNightPrev',sf.weekdayNightPrev||0)}
+        ${staffField('weekendDay','Fim-de-semana — DIA',sf.weekendDay,'weekendDayPrev',sf.weekendDayPrev||0)}
+        ${staffField('weekendNight','Fim-de-semana — NOITE',sf.weekendNight,'weekendNightPrev',sf.weekendNightPrev||0)}
       </div>
       <p class="small">Os feriados usam automaticamente as mesmas necessidades dos fins-de-semana.</p>`;
   } else {
     wrap.innerHTML = `
       <div class="grid2">
-        ${numField('weekday24','Dia útil — 24h',s.staffing.weekday24)}
-        ${numField('weekend24','Fim-de-semana — 24h',s.staffing.weekend24)}
+        ${staffField('weekday24','Dia útil — 24h',sf.weekday24,'weekday24Prev',sf.weekday24Prev||0)}
+        ${staffField('weekend24','Fim-de-semana — 24h',sf.weekend24,'weekend24Prev',sf.weekend24Prev||0)}
       </div>
       <p class="small">Os feriados usam automaticamente as mesmas necessidades dos fins-de-semana.</p>`;
   }
-  wrap.querySelectorAll('input').forEach(el=>{
+  wrap.querySelectorAll('select[data-key]').forEach(el=>{
     el.addEventListener('change',()=>{
-      s.staffing[el.dataset.key] = Math.max(0, Number(el.value));
+      s.staffing[el.dataset.key] = Number(el.value);
       saveState();
     });
   });
   // outros campos
   document.getElementById('setPrevCountsInterval').checked = s.preventionCountsForInterval;
 }
-function numField(key,label,val){
-  return `<label>${label} <input type="number" min="0" data-key="${key}" value="${val}"/></label>`;
+function staffField(key, label, val, prevKey, prevVal){
+  const sel = (k,v,opts)=>`<select data-key="${k}" style="width:52px">`+
+    opts.map(o=>`<option value="${o}"${v===o?' selected':''}>${o}</option>`).join('')+'</select>';
+  return `<label>${label}
+    <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+      ${sel(key, val, [1,2,3])}
+      <span class="small" style="white-space:nowrap;color:var(--prev)">Prev:</span>
+      ${sel(prevKey, prevVal, [0,1])}
+    </div></label>`;
 }
 
 function bindSettings(){
