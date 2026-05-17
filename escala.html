@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gerador de Escalas — Laboratório</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#111827; --panel2:#1f2937; --line:#334155;
+    --text:#e5e7eb; --muted:#94a3b8; --accent:#38bdf8; --accent2:#22d3ee;
+    --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+    --LH:#60a5fa;   /* azul */
+    --LQC:#f472b6;  /* rosa */
+    --LM:#34d399;   /* verde */
+    --FLEX:#fbbf24; /* amarelo */
+    --day:#0ea5e9; --night:#7c3aed; --h24:#f43f5e; --prev:#9ca3af;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
+  header{padding:12px 16px;background:#0b1220;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .spacer{flex:1}
+  nav{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#0b1220;border-bottom:1px solid var(--line);
+    position:sticky;top:49px;z-index:4}
+  nav button{background:var(--panel);color:var(--text);border:1px solid var(--line);
+    padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+  nav button.active{background:var(--accent);color:#06283b;border-color:var(--accent);font-weight:600}
+  main{padding:16px;max-width:1400px;margin:0 auto}
+  .tab{display:none}
+  .tab.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+  .card h2{margin:0 0 10px 0;font-size:15px;font-weight:600;color:var(--accent2)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row > *{flex:0 0 auto}
+  label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:6px;padding:6px 8px;font-size:13px}
+  input[type=checkbox]{accent-color:var(--accent)}
+  button.btn{background:var(--accent);color:#06283b;border:0;padding:8px 12px;border-radius:8px;
+    cursor:pointer;font-weight:600;font-size:13px}
+  button.btn.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:500}
+  button.btn.danger{background:var(--err);color:#fff}
+  button.btn.warn{background:var(--warn);color:#1c1300}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:middle}
+  th{background:#0b1220;font-weight:600;color:var(--muted)}
+  tbody tr:hover{background:#172136}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;
+    font-size:12px;font-weight:600;color:#0b1220;margin:2px}
+  .chip.LH{background:var(--LH)} .chip.LQC{background:var(--LQC)}
+  .chip.LM{background:var(--LM)} .chip.FLEX{background:var(--FLEX)}
+  .chip.prev{background:var(--prev);color:#1c1300}
+  .badge{font-size:11px;padding:1px 5px;border-radius:6px;background:#0b1220;border:1px solid var(--line);color:var(--muted)}
+  .badge.dp{background:#3b82f6;color:#fff;border-color:#3b82f6}
+  /* Calendário */
+  .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#0b1220;padding:4px;border-radius:8px}
+  .calendar .head{padding:6px;text-align:center;color:var(--muted);font-weight:600;font-size:12px}
+  .day{background:var(--panel2);border:1px solid var(--line);border-radius:6px;min-height:120px;padding:6px;font-size:11px}
+  .day.weekend{background:#172136;border-color:#475569}
+  .day.holiday{background:#3f1d1d;border-color:#ef4444}
+  .day.outside{opacity:.25}
+  .day .dnum{font-weight:700;color:var(--accent2);font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .day .htag{font-size:10px;color:var(--err);font-weight:600}
+  .slot{margin-top:4px;padding:3px;border-radius:5px;border-left:3px solid;background:#0b1220}
+  .slot.day-slot{border-color:var(--day)}
+  .slot.night-slot{border-color:var(--night)}
+  .slot.h24-slot{border-color:var(--h24)}
+  .slot.prev-slot{border-color:var(--prev)}
+  .slot .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .alerts{margin-top:8px}
+  .alert{padding:8px 10px;border-radius:8px;margin-bottom:6px;font-size:13px;border:1px solid}
+  .alert.warn{background:#3a2a08;border-color:var(--warn);color:#fde68a}
+  .alert.err{background:#3a0e0e;border-color:var(--err);color:#fecaca}
+  .alert.ok{background:#0e2e1a;border-color:var(--ok);color:#bbf7d0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr}}
+  .small{font-size:11px;color:var(--muted)}
+  details summary{cursor:pointer;color:var(--accent2);font-weight:600;margin-bottom:6px}
+  hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+  .stat-num{font-size:18px;font-weight:700;color:var(--accent2)}
+  .nowrap{white-space:nowrap}
+  .right{text-align:right}
+  .center{text-align:center}
+  .pill{display:inline-block;padding:1px 6px;border-radius:6px;background:#0b1220;border:1px solid var(--line);font-size:11px;margin:0 2px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗓️ Gerador de Escalas — Laboratório</h1>
+  <span class="badge" id="modeBadge">Modo: 12h</span>
+  <span class="badge" id="rangeBadge">—</span>
+  <div class="spacer"></div>
+  <button class="btn secondary" onclick="saveState()">💾 Guardar</button>
+  <button class="btn warn" onclick="if(confirm('Repor dados iniciais? Toda a configuração será perdida.')){localStorage.removeItem(LS_KEY);location.reload();}">↺ Repor</button>
+</header>
+
+<nav id="nav">
+  <button data-tab="escala" class="active">Escala</button>
+  <button data-tab="funcionarios">Funcionários</button>
+  <button data-tab="ferias">Férias / Indisponibilidades</button>
+  <button data-tab="feriados">Feriados</button>
+  <button data-tab="anteriores">Dias anteriores</button>
+  <button data-tab="estatisticas">Estatísticas</button>
+  <button data-tab="definicoes">Definições</button>
+  <button data-tab="impexp">Importar / Exportar</button>
+</nav>
+
+<main>
+
+  <!-- ESCALA -->
+  <section id="tab-escala" class="tab active">
+    <div class="card">
+      <h2>Geração da escala</h2>
+      <div class="row">
+        <label>Data início <input type="date" id="rangeStart"/></label>
+        <label>Data fim <input type="date" id="rangeEnd"/></label>
+        <label>Modo
+          <select id="shiftMode">
+            <option value="12h">12 horas (dia/noite)</option>
+            <option value="24h">24 horas</option>
+          </select>
+        </label>
+        <label>Intervalo mínimo
+          <select id="minInterval">
+            <option value="24">24 horas</option>
+            <option value="48">48 horas</option>
+          </select>
+        </label>
+        <button class="btn" onclick="generateSchedule()">⚙️ Gerar escala</button>
+        <button class="btn secondary" onclick="clearSchedule()">Limpar</button>
+      </div>
+      <div id="genAlerts" class="alerts"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="calTitle">Calendário</h2>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn secondary" onclick="changeCalMonth(-1)">◀ Mês anterior</button>
+        <span id="calLabel" style="font-weight:600"></span>
+        <button class="btn secondary" onclick="changeCalMonth(1)">Próximo mês ▶</button>
+        <span class="spacer"></span>
+        <span class="small">Legenda:
+          <span class="chip LH">LH</span><span class="chip LQC">LQC</span>
+          <span class="chip LM">LM</span><span class="chip FLEX">FLEX</span>
+          <span class="pill" style="border-left:3px solid var(--day)">Dia</span>
+          <span class="pill" style="border-left:3px solid var(--night)">Noite</span>
+          <span class="pill" style="border-left:3px solid var(--h24)">24h</span>
+          <span class="pill" style="border-left:3px solid var(--prev)">P (Prevenção)</span>
+        </span>
+      </div>
+      <div id="calendar"></div>
+    </div>
+  </section>
+
+  <!-- FUNCIONÁRIOS -->
+  <section id="tab-funcionarios" class="tab">
+    <div class="card">
+      <h2>Funcionários</h2>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" onclick="addEmployee()">+ Adicionar funcionário</button>
+        <span class="small">Total: <span id="empCount">0</span></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="empTable">
+          <thead>
+            <tr id="empHeadRow"></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="small">Os feriados usam automaticamente as mesmas permissões e necessidades de pessoal dos fins-de-semana.</p>
+    </div>
+  </section>
+
+  <!-- FÉRIAS -->
+  <section id="tab-ferias" class="tab">
+    <div class="card">
+      <h2>Férias / Indisponibilidades</h2>
+      <div class="row" style="margin-bottom:10px">
+        <label>Funcionário <select id="vacEmp"></select></label>
+        <label>Início <input type="date" id="vacStart"/></label>
+        <label>Fim <input type="date" id="vacEnd"/></label>
+        <label>Nota <input type="text" id="vacNote" placeholder="Opcional"/></label>
+        <button class="btn" onclick="addVacation()">+ Adicionar</button>
+      </div>
+      <table id="vacTable">
+        <thead><tr><th>Funcionário</th><th>Início</th><th>Fim</th><th>Nota</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- FERIADOS -->
+  <section id="tab-feriados" class="tab">
+    <div class="card">
+      <h2>Feriados nacionais fixos</h2>
+      <p class="small">Os feriados nacionais portugueses são pré-carregados. Pode editar ou desativar.
+        Páscoa, Sexta-Feira Santa e Corpo de Deus são calculados automaticamente por ano.</p>
+      <table id="holFixedTable">
+        <thead><tr><th>Mês-Dia</th><th>Nome</th><th>Ativo</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Feriados personalizados</h2>
+      <div class="row" style="margin-bottom:10px">
+        <label>Data <input type="date" id="holDate"/></label>
+        <label>Nome <input type="text" id="holName" placeholder="Ex: Feriado municipal"/></label>
+        <button class="btn" onclick="addCustomHoliday()">+ Adicionar</button>
+      </div>
+      <table id="holCustomTable">
+        <thead><tr><th>Data</th><th>Nome</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- DIAS ANTERIORES -->
+  <section id="tab-anteriores" class="tab">
+    <div class="card">
+      <h2>Dias anteriores (carryover)</h2>
+      <p class="small">Introduza os últimos turnos do mês anterior para garantir que os intervalos mínimos são respeitados.
+        Estes turnos não contam para o limite mensal nem aparecem na escala gerada.</p>
+      <div class="row" style="margin-bottom:10px">
+        <label>Data <input type="date" id="coDate"/></label>
+        <label>Tipo de turno
+          <select id="coType">
+            <option value="day">ER Dia (12h)</option>
+            <option value="night">ER Noite (12h)</option>
+            <option value="h24">ER 24h</option>
+            <option value="prevention">Prevenção</option>
+          </select>
+        </label>
+        <label>Funcionários
+          <select id="coEmps" multiple size="4" style="min-width:200px"></select>
+        </label>
+        <button class="btn" onclick="addCarryover()">+ Adicionar</button>
+      </div>
+      <table id="coTable">
+        <thead><tr><th>Data</th><th>Tipo</th><th>Funcionários</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ESTATÍSTICAS -->
+  <section id="tab-estatisticas" class="tab">
+    <div class="card">
+      <h2>Estatísticas por funcionário</h2>
+      <div style="overflow-x:auto">
+        <table id="statsTable">
+          <thead></thead><tbody></tbody>
+        </table>
+      </div>
+      <p class="small">Horas extra calculadas semana a semana (Segunda a Domingo).
+        Prevenção (P) é contada em separado e não entra no total de turnos ER nem no limite mensal.</p>
+    </div>
+    <div class="card">
+      <h2>Horas extra por semana</h2>
+      <div id="weeklyExtra"></div>
+    </div>
+  </section>
+
+  <!-- DEFINIÇÕES -->
+  <section id="tab-definicoes" class="tab">
+    <div class="card">
+      <h2>Necessidades de pessoal por turno</h2>
+      <div id="staffingArea"></div>
+    </div>
+    <div class="card">
+      <h2>Cálculo de horas extra (Dedicação Plena)</h2>
+      <div class="grid2">
+        <label>Referência semanal (h) <input type="number" id="setWeeklyRef" min="0" step="0.5"/></label>
+        <label>Trabalho diário normal (h) <input type="number" id="setNormalDaily" min="0" step="0.5"/></label>
+        <label>Horas do dia de descanso compensatório <input type="number" id="setCompRestHours" min="0" step="0.5"/></label>
+        <label>Valor pago por turno de prevenção (h) <input type="number" id="setPrevPaid" min="0" step="0.5"/></label>
+      </div>
+      <hr>
+      <div class="row">
+        <label class="row"><input type="checkbox" id="setDpComplement"/> DP adiciona complemento semanal (até atingir referência)</label>
+        <label class="row"><input type="checkbox" id="setGlobalCompRest"/> Contar descanso compensatório (pós-noite/24h) por defeito</label>
+        <label class="row"><input type="checkbox" id="setPrevCountsInterval"/> Prevenção conta para o intervalo mínimo</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- IMPORTAR / EXPORTAR -->
+  <section id="tab-impexp" class="tab">
+    <div class="card">
+      <h2>Importar / Exportar dados</h2>
+      <div class="row">
+        <button class="btn" onclick="exportJSON()">⬇️ Exportar JSON</button>
+        <label class="btn secondary" style="cursor:pointer">
+          ⬆️ Importar JSON
+          <input type="file" accept="application/json" id="importFile" style="display:none" onchange="importJSON(event)"/>
+        </label>
+      </div>
+      <p class="small">Os dados são guardados automaticamente no navegador (localStorage).</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* =========================================================================
+   GERADOR DE ESCALAS – LABORATÓRIO
+   Aplicação Web em ficheiro único.
+   Estrutura: estado global -> renderização por aba -> algoritmo de geração
+   ========================================================================= */
+
+const LS_KEY = 'escala_lab_v1';
+
+const CATEGORIES = ['LH','LQC','LM','FLEX'];
+
+// Elegibilidade simplificada: feriados usam as mesmas permissões que fins-de-semana.
+const DEFAULT_ELIGIBILITY = {
+  weekdayDay:true, weekdayNight:true,
+  weekendDay:true, weekendNight:true,
+  weekday24:true,  weekend24:true
+};
+
+const PT_HOLIDAYS_FIXED = [
+  {mm:1, dd:1,  name:'Ano Novo',                    active:true},
+  {mm:4, dd:25, name:'Dia da Liberdade',            active:true},
+  {mm:5, dd:1,  name:'Dia do Trabalhador',          active:true},
+  {mm:6, dd:10, name:'Dia de Portugal',             active:true},
+  {mm:8, dd:15, name:'Assunção de Nossa Senhora',   active:true},
+  {mm:10,dd:5,  name:'Implantação da República',    active:true},
+  {mm:11,dd:1,  name:'Todos os Santos',             active:true},
+  {mm:12,dd:1,  name:'Restauração da Independência',active:true},
+  {mm:12,dd:8,  name:'Imaculada Conceição',         active:true},
+  {mm:12,dd:25, name:'Natal',                       active:true}
+];
+
+/* --------- Estado inicial --------- */
+function defaultState(){
+  const emp = (n, cat, dp=false, elig=null, max=6, week=null) => ({
+    id:'e_'+n, name:'E'+n, category:cat, dedicacaoPlena:dp,
+    eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
+    maxErPerMonth:max, maxErPerWeek:week, countCompRestDay:true, notes:''
+  });
+  // E3 e E9 são apenas de dia, para teste
+  const dayOnly = {weekdayNight:false, weekendNight:false, holidayNight:false,
+                   weekday24:false, weekend24:false, holiday24:false};
+  return {
+    employees:[
+      emp(1,'LH'), emp(2,'LH'), emp(3,'LH', true, dayOnly),
+      emp(4,'LQC'), emp(5,'LQC'), emp(6,'LQC'),
+      emp(7,'LM'), emp(8,'LM'), emp(9,'LM', false, dayOnly),
+      emp(10,'FLEX'), emp(11,'FLEX'), emp(12,'FLEX'),
+      emp(13,'FLEX'), emp(14,'FLEX')
+    ],
+    vacations:[],
+    holidaysFixed: JSON.parse(JSON.stringify(PT_HOLIDAYS_FIXED)),
+    holidaysCustom:[],
+    settings:{
+      shiftMode:'12h',
+      // Feriados usam o mesmo staffing do fim-de-semana.
+      staffing:{
+        weekdayDay:1, weekdayNight:1,
+        weekendDay:1, weekendNight:1,
+        weekday24:1,  weekend24:1
+      },
+      minHoursBetweenShifts:24,
+      preventionCountsForInterval:false,
+      weeklyReferenceHours:40,
+      normalDailyHours:7,
+      dpAddsComplement:false,        // por defeito desligado para reproduzir Exemplos A-J
+      compRestDayHours:7,
+      globalCountCompRestDay:false,  // por defeito desligado
+      preventionPaidHours:0
+    },
+    carryover:[],
+    schedule:{},   // {date:{day:{employees:[],prevention:[]}, night:{...}, h24:{...}}}
+    range:{start:firstOfThisMonthISO(), end:lastOfThisMonthISO()},
+    calCursor:firstOfThisMonthISO()
+  };
+}
+function firstOfThisMonthISO(){ const d=new Date(); return iso(new Date(d.getFullYear(),d.getMonth(),1)); }
+function lastOfThisMonthISO(){  const d=new Date(); return iso(new Date(d.getFullYear(),d.getMonth()+1,0)); }
+// IMPORTANTE: usar componentes locais (NÃO toISOString) para evitar deslocação de fuso horário.
+function iso(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+
+/* --------- Persistência --------- */
+let state = loadState();
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return migrateState(parsed);
+  }catch(e){ console.warn('Estado inválido, a repor.',e); return defaultState(); }
+}
+// Garante que estados guardados de versões anteriores ficam compatíveis
+// (todas as chaves de elegibilidade, staffing e settings esperadas existem).
+function migrateState(parsed){
+  const def = defaultState();
+  const merged = Object.assign(def, parsed||{});
+  // settings
+  merged.settings = Object.assign({}, def.settings, parsed.settings||{});
+  merged.settings.staffing = Object.assign({}, def.settings.staffing, (parsed.settings||{}).staffing||{});
+  // funcionários — garantir todas as chaves de elegibilidade
+  merged.employees = (parsed.employees||def.employees).map(e=>{
+    return Object.assign({
+      id:e.id||('e_'+Math.random().toString(36).slice(2)),
+      name:e.name||'Funcionário',
+      category:CATEGORIES.includes(e.category)?e.category:'FLEX',
+      dedicacaoPlena:!!e.dedicacaoPlena,
+      maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:6,
+      maxErPerWeek:e.maxErPerWeek||null,
+      countCompRestDay:e.countCompRestDay!==false,
+      notes:e.notes||''
+    }, e, {
+      eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, e.eligibility||{})
+    });
+  });
+  merged.vacations = parsed.vacations||[];
+  merged.holidaysFixed = parsed.holidaysFixed||def.holidaysFixed;
+  merged.holidaysCustom = parsed.holidaysCustom||[];
+  merged.carryover = parsed.carryover||[];
+  merged.schedule = parsed.schedule||{};
+  merged.range = parsed.range || def.range;
+  if(!merged.range.start) merged.range.start = def.range.start;
+  if(!merged.range.end) merged.range.end = def.range.end;
+  merged.calCursor = parsed.calCursor || merged.range.start;
+  return merged;
+}
+function saveState(){
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+  flash('Configuração guardada.','ok');
+}
+function flash(msg, type='ok'){
+  const a = document.createElement('div');
+  a.className = 'alert '+type;
+  a.textContent = msg;
+  const box = document.getElementById('genAlerts') || document.body;
+  box.prepend(a);
+  setTimeout(()=>a.remove(), 4000);
+}
+
+/* --------- Feriados (cálculo de Páscoa - algoritmo de Meeus) --------- */
+function easterSunday(year){
+  const a = year%19, b = Math.floor(year/100), c = year%100;
+  const d = Math.floor(b/4), e = b%4;
+  const f = Math.floor((b+8)/25);
+  const g = Math.floor((b-f+1)/3);
+  const h = (19*a + b - d - g + 15)%30;
+  const i = Math.floor(c/4), k = c%4;
+  const l = (32 + 2*e + 2*i - h - k)%7;
+  const m = Math.floor((a + 11*h + 22*l)/451);
+  const month = Math.floor((h + l - 7*m + 114)/31);
+  const day = ((h + l - 7*m + 114)%31) + 1;
+  return new Date(year, month-1, day);
+}
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function holidaysForYear(year){
+  const list = [];
+  state.holidaysFixed.forEach(h=>{
+    if(h.active) list.push({date:iso(new Date(year,h.mm-1,h.dd)), name:h.name, kind:'fixo'});
+  });
+  const easter = easterSunday(year);
+  list.push({date:iso(addDays(easter,-2)), name:'Sexta-Feira Santa', kind:'móvel'});
+  list.push({date:iso(easter),             name:'Domingo de Páscoa',  kind:'móvel'});
+  list.push({date:iso(addDays(easter,60)), name:'Corpo de Deus',      kind:'móvel'});
+  state.holidaysCustom.forEach(h=>{
+    if(h.date.startsWith(String(year))) list.push({date:h.date, name:h.name, kind:'personalizado'});
+  });
+  return list;
+}
+function isHoliday(dateISO){
+  const year = parseInt(dateISO.slice(0,4),10);
+  return holidaysForYear(year).some(h=>h.date===dateISO);
+}
+function holidayName(dateISO){
+  const year = parseInt(dateISO.slice(0,4),10);
+  const h = holidaysForYear(year).find(h=>h.date===dateISO);
+  return h ? h.name : '';
+}
+function dayKind(dateISO){
+  // 'weekday' | 'weekend' | 'holiday'  (feriado tem prioridade)
+  if(isHoliday(dateISO)) return 'holiday';
+  const dow = parseISO(dateISO).getDay(); // 0=Dom,6=Sab
+  if(dow===0||dow===6) return 'weekend';
+  return 'weekday';
+}
+
+/* --------- Janelas temporais dos turnos (para intervalo mínimo) --------- */
+function shiftWindow(dateISO, type){
+  const d = parseISO(dateISO);
+  const make = (h0,h1,nextDay)=> {
+    const start = new Date(d); start.setHours(h0,0,0,0);
+    const end = new Date(d); if(nextDay) end.setDate(end.getDate()+1); end.setHours(h1,0,0,0);
+    return {start,end};
+  };
+  switch(type){
+    case 'day':   return make(8,20,false);
+    case 'night': return make(20,8,true);
+    case 'h24':   return make(8,8,true);
+    case 'prevention': return make(8,8,true); // aproximação
+  }
+}
+
+/* =========================================================================
+   ALGORITMO DE GERAÇÃO
+   ========================================================================= */
+function generateSchedule(){
+  const alerts = document.getElementById('genAlerts');
+  alerts.innerHTML = '';
+  try { _runGeneration(alerts); }
+  catch(err){
+    console.error('[Escala] Erro na geração:', err);
+    const a = document.createElement('div'); a.className='alert err';
+    a.innerHTML = '❌ Erro na geração: '+escapeHtml(err.message||String(err))+
+      '<br><span class="small">Abra a consola do navegador (F12) para mais detalhes.</span>';
+    alerts.appendChild(a);
+  }
+}
+
+function _runGeneration(alerts){
+  state.range.start = document.getElementById('rangeStart').value;
+  state.range.end   = document.getElementById('rangeEnd').value;
+  state.settings.shiftMode = document.getElementById('shiftMode').value;
+  state.settings.minHoursBetweenShifts = parseInt(document.getElementById('minInterval').value,10);
+
+  if(!state.range.start || !state.range.end) throw new Error('Indique a data de início e fim.');
+  if(state.range.end < state.range.start)    throw new Error('A data de fim é anterior à de início.');
+  if(!state.employees || !state.employees.length) throw new Error('Não existem funcionários definidos.');
+
+  saveState();
+
+  state.schedule = {};
+  const dates = enumerateDates(state.range.start, state.range.end);
+  const mode = state.settings.shiftMode;
+  const issues = [];
+  let totalAssigned = 0, totalRequired = 0;
+  console.log('[Escala] Geração:', {start:state.range.start, end:state.range.end, mode,
+    days:dates.length, employees:state.employees.length});
+
+  // Estruturas auxiliares para fairness e contagens
+  const stats = {};
+  state.employees.forEach(e=>{
+    stats[e.id] = {total:0, day:0, night:0, h24:0, prev:0,
+                   weekendN:0, holidayN:0,
+                   byMonth:{}, byWeek:{},
+                   lastEnd:lastCarryoverEnd(e.id)};
+  });
+
+  for(const date of dates){
+    const kind = dayKind(date);
+    const slots = neededSlots(mode, kind);
+    state.schedule[date] = {day:{employees:[],prevention:[]},
+                            night:{employees:[],prevention:[]},
+                            h24:{employees:[],prevention:[]}};
+
+    for(const slot of slots){
+      const win = shiftWindow(date, slot.type);
+      const required = slot.required;
+      const eligKey = eligibilityKey(slot.type, kind);
+
+      // Selecionar candidatos
+      const candidates = state.employees.filter(e=>{
+        if(!e.eligibility[eligKey]) return false;
+        if(isOnVacation(e.id, date)) return false;
+        // limite mensal
+        const month = date.slice(0,7);
+        const monthCount = stats[e.id].byMonth[month]||0;
+        if(monthCount >= (e.maxErPerMonth||999)) return false;
+        // limite semanal
+        if(e.maxErPerWeek){
+          const wk = isoWeekKey(date);
+          const wkCount = stats[e.id].byWeek[wk]||0;
+          if(wkCount >= e.maxErPerWeek) return false;
+        }
+        // já está atribuído nalgum turno desse dia?
+        const sd = state.schedule[date];
+        if(sd.day.employees.includes(e.id) || sd.day.prevention.includes(e.id) ||
+           sd.night.employees.includes(e.id) || sd.night.prevention.includes(e.id) ||
+           sd.h24.employees.includes(e.id) || sd.h24.prevention.includes(e.id)) return false;
+        // intervalo mínimo
+        const lastEnd = stats[e.id].lastEnd;
+        if(lastEnd){
+          const diffH = (win.start - lastEnd)/3600000;
+          if(diffH < state.settings.minHoursBetweenShifts) return false;
+        }
+        return true;
+      });
+
+      // Score: menor é melhor
+      candidates.sort((a,b)=>{
+        const sa = scoreEmployee(stats[a.id], slot.type, kind, a);
+        const sb = scoreEmployee(stats[b.id], slot.type, kind, b);
+        return sa - sb;
+      });
+
+      const need = Math.max(0, Number(required)||0);
+      totalRequired += need;
+      const chosen = candidates.slice(0, need);
+      totalAssigned += chosen.length;
+      if(chosen.length < need){
+        issues.push({type:'err',
+          msg:`Não foi possível preencher ${need - chosen.length} lugar(es) em ${formatPT(date)} (${slotLabel(slot.type)}). `+
+              `Verifique elegibilidade, férias, limites mensais ou intervalo mínimo.`});
+      }
+      const target = state.schedule[date][slotKey(slot.type)].employees;
+      chosen.forEach(e=>{
+        target.push(e.id);
+        // atualizar contagens
+        const s = stats[e.id];
+        s.total++;
+        s[slot.type==='h24'?'h24':slot.type]++;
+        if(kind==='weekend' && slot.type==='night') s.weekendN++;
+        if(kind==='holiday' && slot.type==='night') s.holidayN++;
+        const m = date.slice(0,7); s.byMonth[m] = (s.byMonth[m]||0)+1;
+        const wk = isoWeekKey(date); s.byWeek[wk] = (s.byWeek[wk]||0)+1;
+        s.lastEnd = win.end;
+      });
+
+      // verificar quem está perto do limite
+      chosen.forEach(e=>{
+        const m = date.slice(0,7);
+        if((stats[e.id].byMonth[m]||0) === (e.maxErPerMonth||999)){
+          issues.push({type:'warn',
+            msg:`${e.name} atingiu o limite mensal (${e.maxErPerMonth}) em ${m}.`});
+        }
+      });
+    }
+  }
+
+  saveState();
+  renderAlerts(issues);
+  setCalCursor(state.range.start);
+  renderCalendar();
+  renderStats();
+
+  // Diagnóstico visível para o utilizador
+  const diag = document.createElement('div');
+  diag.className = 'alert ' + (totalAssigned===totalRequired ? 'ok' : (totalAssigned>0 ? 'warn' : 'err'));
+  diag.innerHTML = `📊 <strong>Geração concluída.</strong> Dias: ${dates.length} · `+
+    `Turnos pedidos: ${totalRequired} · Turnos atribuídos: ${totalAssigned}` +
+    (totalAssigned===0 ? '<br><span class="small">⚠️ Nenhum turno foi atribuído. Verifique se há funcionários elegíveis para os tipos de turno selecionados (separador <strong>Funcionários</strong>) e se o staffing nas <strong>Definições</strong> tem valores &gt; 0.</span>' : '');
+  alerts.appendChild(diag);
+  console.log('[Escala] Concluída.', {dates:dates.length, totalRequired, totalAssigned, issues:issues.length});
+}
+
+function neededSlots(mode, kind){
+  const s = state.settings.staffing;
+  // Feriados são tratados como fins-de-semana para staffing e elegibilidade.
+  const ek = (kind==='weekday') ? 'weekday' : 'weekend';
+  if(mode==='24h'){
+    return [{type:'h24', required:s[ek+'24']}];
+  }
+  return [
+    {type:'day',   required:s[ek+'Day']},
+    {type:'night', required:s[ek+'Night']}
+  ];
+}
+function slotKey(type){ return type==='h24'?'h24':type; }
+function slotLabel(type){ return type==='day'?'Dia':type==='night'?'Noite':type==='h24'?'24h':'Prev'; }
+function eligibilityKey(type, kind){
+  const k = (kind==='weekday') ? 'weekday' : 'weekend';
+  if(type==='h24') return k+'24';
+  return k + (type==='day'?'Day':'Night');
+}
+
+function scoreEmployee(s, type, kind, emp){
+  // Equidade: menor total → maior prioridade.
+  let score = s.total*100;
+  // penalizar quem já tem muitas do mesmo tipo
+  if(type==='night') score += s.night*40;
+  if(type==='day')   score += s.day*40;
+  if(type==='h24')   score += s.h24*40;
+  // penalizar quem já tem muitas noites de fds/feriado
+  if(kind==='weekend' || kind==='holiday'){
+    if(type==='night') score += s.weekendN*20;
+    if(type==='h24')   score += s.weekendN*20;
+  }
+  // preferir FLEX (residentes) como cobertura flexível quando empatado
+  if(emp.category==='FLEX') score -= 2;
+  // pequena perturbação determinística para evitar empates persistentes
+  score += (Math.abs(hashString(emp.id)) % 7);
+  return score;
+}
+function hashString(s){
+  let h = 0; for(let i=0;i<s.length;i++){ h = ((h<<5)-h) + s.charCodeAt(i); h|=0; } return h;
+}
+
+function enumerateDates(startISO, endISO){
+  const out = [];
+  let d = parseISO(startISO);
+  const end = parseISO(endISO);
+  while(d<=end){ out.push(iso(d)); d=addDays(d,1); }
+  return out;
+}
+
+function isOnVacation(empId, dateISO){
+  return state.vacations.some(v=> v.employeeId===empId &&
+    dateISO >= v.start && dateISO <= v.end);
+}
+
+function lastCarryoverEnd(empId){
+  // devolve o instante final do turno carryover mais recente onde o funcionário esteve
+  let last = null;
+  for(const co of state.carryover){
+    if(!co.employeeIds.includes(empId)) continue;
+    if(co.shiftType==='prevention' && !state.settings.preventionCountsForInterval) continue;
+    const w = shiftWindow(co.date, co.shiftType==='prevention'?'prevention':co.shiftType);
+    if(!last || w.end > last) last = w.end;
+  }
+  return last;
+}
+
+/* Chave de semana ISO (Seg=1..Dom=7) */
+function isoWeekKey(dateISO){
+  const d = parseISO(dateISO);
+  // copia para evitar mutação
+  const t = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const dayNum = (t.getUTCDay()+6)%7; // 0=Seg
+  t.setUTCDate(t.getUTCDate() - dayNum + 3);
+  const firstThursday = new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  const diff = (t - firstThursday)/86400000;
+  const week = 1 + Math.round(diff/7);
+  return `${t.getUTCFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+
+/* =========================================================================
+   RENDERIZAÇÃO
+   ========================================================================= */
+
+function setCalCursor(dateISO){
+  const d = parseISO(dateISO);
+  state.calCursor = iso(new Date(d.getFullYear(),d.getMonth(),1));
+}
+function changeCalMonth(delta){
+  const d = parseISO(state.calCursor);
+  state.calCursor = iso(new Date(d.getFullYear(),d.getMonth()+delta,1));
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const wrap = document.getElementById('calendar');
+  const cursor = parseISO(state.calCursor);
+  const year = cursor.getFullYear(), month = cursor.getMonth();
+  const monthName = cursor.toLocaleDateString('pt-PT',{month:'long',year:'numeric'});
+  document.getElementById('calLabel').textContent = monthName.charAt(0).toUpperCase()+monthName.slice(1);
+
+  // Determinar o calendário começando à Segunda
+  const firstOfMonth = new Date(year,month,1);
+  const firstDow = (firstOfMonth.getDay()+6)%7; // 0=Seg
+  const gridStart = addDays(firstOfMonth, -firstDow);
+  const lastOfMonth = new Date(year,month+1,0);
+  const totalCells = Math.ceil((firstDow + lastOfMonth.getDate())/7)*7;
+
+  const headers = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  let html = '<div class="calendar">';
+  headers.forEach(h=> html += `<div class="head">${h}</div>`);
+
+  for(let i=0;i<totalCells;i++){
+    const d = addDays(gridStart, i);
+    const dISO = iso(d);
+    const inMonth = d.getMonth()===month;
+    const kind = dayKind(dISO);
+    const classes = ['day'];
+    if(!inMonth) classes.push('outside');
+    if(kind==='weekend') classes.push('weekend');
+    if(kind==='holiday') classes.push('holiday');
+
+    let inner = `<div class="dnum">${d.getDate()}${kind==='holiday'?'<span class="htag">FERIADO</span>':''}</div>`;
+    if(kind==='holiday'){
+      inner += `<div class="small" style="color:#fecaca">${holidayName(dISO)}</div>`;
+    }
+    const day = state.schedule[dISO];
+    if(day){
+      // ordem visual: 24h, Dia, Noite, Prevenção
+      const renderSlot = (slotType, label, cls)=>{
+        const s = day[slotType==='h24'?'h24':slotType];
+        if(!s) return '';
+        const all = [...s.employees.map(id=>({id,p:false})), ...s.prevention.map(id=>({id,p:true}))];
+        if(!all.length) return '';
+        return `<div class="slot ${cls}"><div class="lbl">${label}</div>`+
+          all.map(o=>renderChip(o.id, o.p)).join('')+`</div>`;
+      };
+      inner += renderSlot('h24','24h','h24-slot');
+      inner += renderSlot('day','Dia','day-slot');
+      inner += renderSlot('night','Noite','night-slot');
+    }
+    html += `<div class="${classes.join(' ')}" data-d="${dISO}">${inner}</div>`;
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function renderChip(empId, isPrev){
+  const e = state.employees.find(x=>x.id===empId);
+  if(!e) return '';
+  const dp = e.dedicacaoPlena ? '<span class="badge dp" title="Dedicação Plena">DP</span>' : '';
+  const p = isPrev ? '<span class="badge" style="background:#9ca3af;color:#1c1300;border-color:#9ca3af">P</span>' : '';
+  return `<span class="chip ${e.category}" title="${e.name} (${e.category})">${e.name}${dp}${p}</span>`;
+}
+
+function renderAlerts(issues){
+  const box = document.getElementById('genAlerts');
+  box.innerHTML='';
+  if(!issues.length){
+    const ok = document.createElement('div'); ok.className='alert ok';
+    ok.textContent='Escala gerada sem avisos.'; box.appendChild(ok); return;
+  }
+  // deduplicar
+  const seen = new Set();
+  issues.forEach(i=>{
+    const k = i.type+'|'+i.msg;
+    if(seen.has(k)) return; seen.add(k);
+    const a = document.createElement('div'); a.className='alert '+i.type;
+    a.textContent = (i.type==='err'?'❌ ':'⚠️ ')+i.msg;
+    box.appendChild(a);
+  });
+}
+
+/* --------- Funcionários --------- */
+function renderEmployees(){
+  const tb = document.querySelector('#empTable tbody');
+  const headRow = document.getElementById('empHeadRow');
+  const mode = state.settings.shiftMode;
+
+  // Cabeçalhos dinâmicos conforme modo
+  let eligHeads;
+  if(mode==='12h'){
+    eligHeads = `<th class="center">Sem D</th><th class="center">Sem N</th>
+                 <th class="center">FDS D</th><th class="center">FDS N</th>`;
+  } else {
+    eligHeads = `<th class="center">Sem (24h)</th><th class="center">FDS (24h)</th>`;
+  }
+  headRow.innerHTML = `
+    <th>Nome</th><th>Categoria</th><th class="center">DP</th>
+    ${eligHeads}
+    <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
+    <th>Notas</th><th></th>`;
+
+  tb.innerHTML='';
+  state.employees.forEach(e=>{
+    const tr = document.createElement('tr');
+    const catSel = CATEGORIES.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('');
+    const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''}/>`;
+    let eligCells = '';
+    if(mode==='12h'){
+      eligCells = `
+        <td class="center">${cb('weekdayDay')}</td>
+        <td class="center">${cb('weekdayNight')}</td>
+        <td class="center">${cb('weekendDay')}</td>
+        <td class="center">${cb('weekendNight')}</td>`;
+    } else {
+      eligCells = `
+        <td class="center">${cb('weekday24')}</td>
+        <td class="center">${cb('weekend24')}</td>`;
+    }
+    tr.innerHTML = `
+      <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
+      <td><select data-emp="${e.id}" data-field="category">${catSel}</select></td>
+      <td class="center"><input type="checkbox" data-emp="${e.id}" data-field="dedicacaoPlena" ${e.dedicacaoPlena?'checked':''}/></td>
+      ${eligCells}
+      <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:60px"/></td>
+      <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:60px"/></td>
+      <td><input type="text" value="${escapeHtml(e.notes||'')}" data-emp="${e.id}" data-field="notes" style="width:140px"/></td>
+      <td><button class="btn danger" onclick="removeEmployee('${e.id}')">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('empCount').textContent = state.employees.length;
+  // listeners
+  tb.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const id = el.dataset.emp;
+      const e = state.employees.find(x=>x.id===id); if(!e) return;
+      if(el.dataset.elig){
+        e.eligibility[el.dataset.elig] = el.checked;
+      } else {
+        const f = el.dataset.field;
+        if(el.type==='checkbox') e[f] = el.checked;
+        else if(el.type==='number') e[f] = el.value===''?null:Number(el.value);
+        else e[f] = el.value;
+      }
+      saveState();
+      refreshVacEmpOptions(); refreshCoEmpOptions();
+    });
+  });
+}
+
+function addEmployee(){
+  const n = state.employees.length+1;
+  state.employees.push({
+    id:'e_'+Date.now(), name:'E'+n, category:'FLEX', dedicacaoPlena:false,
+    eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
+    maxErPerMonth:6, maxErPerWeek:null, countCompRestDay:true, notes:''
+  });
+  saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions();
+}
+function removeEmployee(id){
+  if(!confirm('Remover este funcionário? Todos os turnos atribuídos serão removidos.')) return;
+  state.employees = state.employees.filter(e=>e.id!==id);
+  state.vacations = state.vacations.filter(v=>v.employeeId!==id);
+  state.carryover.forEach(co=> co.employeeIds = co.employeeIds.filter(x=>x!==id));
+  for(const d in state.schedule){
+    ['day','night','h24'].forEach(k=>{
+      state.schedule[d][k].employees = state.schedule[d][k].employees.filter(x=>x!==id);
+      state.schedule[d][k].prevention = state.schedule[d][k].prevention.filter(x=>x!==id);
+    });
+  }
+  saveState(); renderEmployees(); renderCalendar(); renderStats(); refreshVacEmpOptions(); refreshCoEmpOptions();
+}
+
+/* --------- Férias --------- */
+function refreshVacEmpOptions(){
+  const sel = document.getElementById('vacEmp');
+  sel.innerHTML = state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+function addVacation(){
+  const employeeId = document.getElementById('vacEmp').value;
+  const start = document.getElementById('vacStart').value;
+  const end = document.getElementById('vacEnd').value;
+  const note = document.getElementById('vacNote').value;
+  if(!employeeId||!start||!end){ flash('Preencha funcionário e datas.','err'); return; }
+  if(end<start){ flash('Data fim anterior à início.','err'); return; }
+  state.vacations.push({id:'v_'+Date.now(), employeeId, start, end, note});
+  saveState(); renderVacations();
+  document.getElementById('vacStart').value=''; document.getElementById('vacEnd').value=''; document.getElementById('vacNote').value='';
+}
+function renderVacations(){
+  const tb = document.querySelector('#vacTable tbody');
+  tb.innerHTML='';
+  state.vacations.forEach(v=>{
+    const e = state.employees.find(x=>x.id===v.employeeId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${e?e.name:'?'}</strong></td>
+      <td>${formatPT(v.start)}</td><td>${formatPT(v.end)}</td>
+      <td>${escapeHtml(v.note||'')}</td>
+      <td><button class="btn danger" onclick="removeVacation('${v.id}')">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function removeVacation(id){
+  state.vacations = state.vacations.filter(v=>v.id!==id);
+  saveState(); renderVacations();
+}
+
+/* --------- Feriados --------- */
+function renderHolidays(){
+  const tb = document.querySelector('#holFixedTable tbody');
+  tb.innerHTML='';
+  state.holidaysFixed.forEach((h,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${String(h.mm).padStart(2,'0')}-${String(h.dd).padStart(2,'0')}</td>
+      <td><input type="text" value="${escapeHtml(h.name)}" data-i="${i}" data-f="name"/></td>
+      <td class="center"><input type="checkbox" data-i="${i}" data-f="active" ${h.active?'checked':''}/></td>
+      <td><button class="btn danger" onclick="removeFixedHoliday(${i})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('input').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const h = state.holidaysFixed[parseInt(el.dataset.i,10)];
+      if(el.type==='checkbox') h[el.dataset.f] = el.checked;
+      else h[el.dataset.f] = el.value;
+      saveState();
+    });
+  });
+  const cb = document.querySelector('#holCustomTable tbody');
+  cb.innerHTML='';
+  state.holidaysCustom.forEach((h,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${formatPT(h.date)}</td><td>${escapeHtml(h.name)}</td>
+      <td><button class="btn danger" onclick="removeCustomHoliday(${i})">✕</button></td>`;
+    cb.appendChild(tr);
+  });
+}
+function removeFixedHoliday(i){
+  if(!confirm('Remover este feriado fixo?')) return;
+  state.holidaysFixed.splice(i,1); saveState(); renderHolidays();
+}
+function addCustomHoliday(){
+  const date = document.getElementById('holDate').value;
+  const name = document.getElementById('holName').value;
+  if(!date||!name){ flash('Preencha data e nome.','err'); return; }
+  state.holidaysCustom.push({date,name});
+  saveState(); renderHolidays();
+  document.getElementById('holDate').value=''; document.getElementById('holName').value='';
+}
+function removeCustomHoliday(i){
+  state.holidaysCustom.splice(i,1); saveState(); renderHolidays();
+}
+
+/* --------- Carryover --------- */
+function refreshCoEmpOptions(){
+  const sel = document.getElementById('coEmps');
+  sel.innerHTML = state.employees.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+function addCarryover(){
+  const date = document.getElementById('coDate').value;
+  const shiftType = document.getElementById('coType').value;
+  const employeeIds = Array.from(document.getElementById('coEmps').selectedOptions).map(o=>o.value);
+  if(!date||!employeeIds.length){ flash('Preencha data e selecione pelo menos um funcionário.','err'); return; }
+  state.carryover.push({id:'co_'+Date.now(), date, shiftType, employeeIds});
+  saveState(); renderCarryover();
+  document.getElementById('coDate').value=''; document.getElementById('coEmps').selectedIndex=-1;
+}
+function renderCarryover(){
+  const tb = document.querySelector('#coTable tbody');
+  tb.innerHTML='';
+  state.carryover.sort((a,b)=>a.date.localeCompare(b.date));
+  state.carryover.forEach(co=>{
+    const names = co.employeeIds.map(id=>{
+      const e = state.employees.find(x=>x.id===id);
+      return e ? `<strong>${e.name}</strong>` : '?';
+    }).join(', ');
+    const labels = {day:'ER Dia',night:'ER Noite',h24:'ER 24h',prevention:'Prevenção'};
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${formatPT(co.date)}</td><td>${labels[co.shiftType]||co.shiftType}</td>
+      <td>${names}</td><td><button class="btn danger" onclick="removeCarryover('${co.id}')">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function removeCarryover(id){
+  state.carryover = state.carryover.filter(c=>c.id!==id);
+  saveState(); renderCarryover();
+}
+
+/* --------- Estatísticas --------- */
+function renderStats(){
+  const thead = document.querySelector('#statsTable thead');
+  const tb = document.querySelector('#statsTable tbody');
+  const mode = state.settings.shiftMode;
+
+  let cols;
+  if(mode==='12h'){
+    cols = ['Func.','Cat.','DP','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','Dia Fer.','Noi. Fer.','P','Limite','Horas ER','Cred./sem (média)','Extras Mês'];
+  } else {
+    cols = ['Func.','Cat.','DP','Total ER','24h Sem.','24h FdS','24h Fer.','P','Limite','Horas ER','Cred./sem (média)','Extras Mês'];
+  }
+  thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
+
+  const dates = enumerateDates(state.range.start, state.range.end);
+  // contagens por funcionário
+  const tally = {};
+  state.employees.forEach(e=> tally[e.id] = {total:0, P:0,
+    weekday_day:0, weekday_night:0, weekend_day:0, weekend_night:0, holiday_day:0, holiday_night:0,
+    weekday_h24:0, weekend_h24:0, holiday_h24:0,
+    rawHours:0});
+
+  dates.forEach(date=>{
+    const sd = state.schedule[date]; if(!sd) return;
+    const kind = dayKind(date);
+    const k = kind==='weekday'?'weekday':kind==='weekend'?'weekend':'holiday';
+    ['day','night','h24'].forEach(slotType=>{
+      const slot = sd[slotType]; if(!slot) return;
+      const hrs = slotType==='h24'?24:12;
+      slot.employees.forEach(id=>{
+        tally[id].total++; tally[id][k+'_'+slotType] = (tally[id][k+'_'+slotType]||0)+1;
+        tally[id].rawHours += hrs;
+      });
+      slot.prevention.forEach(id=>{ tally[id].P++; });
+    });
+  });
+
+  // Cálculo de horas extra por semana, depois somar mês
+  const weeklyData = computeWeeklyExtras(dates);
+
+  tb.innerHTML='';
+  state.employees.forEach(e=>{
+    const t = tally[e.id];
+    const week = weeklyData.perEmployee[e.id] || {totals:{credited:0,extras:0,count:0}, weeks:[]};
+    const avgCred = week.totals.count ? (week.totals.credited / week.totals.count).toFixed(1) : '—';
+    const extras = week.totals.extras.toFixed(1);
+    const dpBadge = e.dedicacaoPlena ? '<span class="badge dp">DP</span>' : '<span class="badge">—</span>';
+    const tr = document.createElement('tr');
+    const cells = [];
+    cells.push(`<strong>${e.name}</strong>`);
+    cells.push(`<span class="chip ${e.category}">${e.category}</span>`);
+    cells.push(dpBadge);
+    cells.push(`<span class="stat-num">${t.total}</span>`);
+    if(mode==='12h'){
+      cells.push(t.weekday_day||0); cells.push(t.weekday_night||0);
+      cells.push(t.weekend_day||0); cells.push(t.weekend_night||0);
+      cells.push(t.holiday_day||0); cells.push(t.holiday_night||0);
+    } else {
+      cells.push(t.weekday_h24||0); cells.push(t.weekend_h24||0); cells.push(t.holiday_h24||0);
+    }
+    cells.push(`<strong style="color:var(--prev)">${t.P}</strong>`);
+    cells.push(`${t.total}/${e.maxErPerMonth||'∞'}`);
+    cells.push(t.rawHours+'h');
+    cells.push(avgCred+'h');
+    cells.push(extras+'h');
+    tr.innerHTML = cells.map(c=>`<td>${c}</td>`).join('');
+    tb.appendChild(tr);
+  });
+
+  // Tabela semanal
+  const wbox = document.getElementById('weeklyExtra');
+  if(!weeklyData.weeks.length){ wbox.innerHTML='<p class="small">Sem dados.</p>'; return; }
+  let html = '<table><thead><tr><th>Semana</th>';
+  state.employees.forEach(e=> html += `<th>${e.name}</th>`);
+  html += '</tr></thead><tbody>';
+  weeklyData.weeks.forEach(wk=>{
+    html += `<tr><td><strong>${wk}</strong></td>`;
+    state.employees.forEach(e=>{
+      const w = (weeklyData.perEmployee[e.id]?.weeks||[]).find(x=>x.week===wk);
+      const v = w ? w.extras : 0;
+      const color = v>0 ? 'color:var(--warn);font-weight:600' : 'color:var(--muted)';
+      html += `<td style="${color}">${v.toFixed(1)}h</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wbox.innerHTML = html;
+}
+
+/* Horas extra (cálculo semanal Seg-Dom) */
+function computeWeeklyExtras(dates){
+  const cfg = state.settings;
+  const result = {weeks:[], perEmployee:{}};
+  // Agrupar dias por semana ISO
+  const weekMap = {};
+  dates.forEach(d=>{
+    const k = isoWeekKey(d);
+    (weekMap[k] = weekMap[k]||[]).push(d);
+  });
+  const weeks = Object.keys(weekMap).sort();
+  result.weeks = weeks;
+
+  state.employees.forEach(e=>{
+    result.perEmployee[e.id] = {weeks:[], totals:{credited:0,extras:0,count:0}};
+    weeks.forEach(wk=>{
+      const wkDays = weekMap[wk];
+      let erDay=0, erNight=0, erH24=0, compRestDays=0;
+      let erDaysSet = new Set(); // dias úteis "ocupados" por turno ER
+      wkDays.forEach(d=>{
+        const sd = state.schedule[d]; if(!sd) return;
+        const kind = dayKind(d);
+        const isWorkday = kind==='weekday';
+        if(sd.day.employees.includes(e.id)){
+          erDay++; if(isWorkday) erDaysSet.add(d);
+        }
+        if(sd.night.employees.includes(e.id)){
+          erNight++;
+          // descanso compensatório = dia seguinte
+          if(shouldCountCompRest(e)) compRestDays++;
+        }
+        if(sd.h24.employees.includes(e.id)){
+          erH24++; if(isWorkday) erDaysSet.add(d);
+          if(shouldCountCompRest(e)) compRestDays++;
+        }
+      });
+      // dias úteis da semana (Seg-Sex que não são feriado e não estão em férias)
+      const workdays = wkDays.filter(d=> dayKind(d)==='weekday' && !isOnVacation(e.id,d)).length;
+      const normalWorkdays = Math.max(0, workdays - erDaysSet.size);
+
+      let credited = normalWorkdays * cfg.normalDailyHours
+                   + erDay*12 + erNight*12 + erH24*24
+                   + compRestDays * cfg.compRestDayHours;
+
+      // DP complemento (se ativo)
+      if(cfg.dpAddsComplement && e.dedicacaoPlena){
+        const complement = Math.max(0, cfg.weeklyReferenceHours - 5*cfg.normalDailyHours);
+        credited += complement;
+      }
+
+      const extras = Math.max(0, credited - cfg.weeklyReferenceHours);
+      result.perEmployee[e.id].weeks.push({week:wk, credited, extras});
+      result.perEmployee[e.id].totals.credited += credited;
+      result.perEmployee[e.id].totals.extras += extras;
+      result.perEmployee[e.id].totals.count++;
+    });
+  });
+  return result;
+}
+
+function shouldCountCompRest(emp){
+  // O direito ao dia de descanso compensatório está ligado à Dedicação Plena.
+  return state.settings.globalCountCompRestDay && !!emp.dedicacaoPlena;
+}
+
+/* --------- Definições --------- */
+function renderSettings(){
+  const s = state.settings;
+  const wrap = document.getElementById('staffingArea');
+  if(s.shiftMode==='12h'){
+    wrap.innerHTML = `
+      <div class="grid2">
+        ${numField('weekdayDay','Dia útil — DIA',s.staffing.weekdayDay)}
+        ${numField('weekdayNight','Dia útil — NOITE',s.staffing.weekdayNight)}
+        ${numField('weekendDay','Fim-de-semana — DIA',s.staffing.weekendDay)}
+        ${numField('weekendNight','Fim-de-semana — NOITE',s.staffing.weekendNight)}
+      </div>
+      <p class="small">Os feriados usam automaticamente as mesmas necessidades dos fins-de-semana.</p>`;
+  } else {
+    wrap.innerHTML = `
+      <div class="grid2">
+        ${numField('weekday24','Dia útil — 24h',s.staffing.weekday24)}
+        ${numField('weekend24','Fim-de-semana — 24h',s.staffing.weekend24)}
+      </div>
+      <p class="small">Os feriados usam automaticamente as mesmas necessidades dos fins-de-semana.</p>`;
+  }
+  wrap.querySelectorAll('input').forEach(el=>{
+    el.addEventListener('change',()=>{
+      s.staffing[el.dataset.key] = Math.max(0, Number(el.value));
+      saveState();
+    });
+  });
+  // outros campos
+  document.getElementById('setWeeklyRef').value = s.weeklyReferenceHours;
+  document.getElementById('setNormalDaily').value = s.normalDailyHours;
+  document.getElementById('setCompRestHours').value = s.compRestDayHours;
+  document.getElementById('setPrevPaid').value = s.preventionPaidHours;
+  document.getElementById('setDpComplement').checked = s.dpAddsComplement;
+  document.getElementById('setGlobalCompRest').checked = s.globalCountCompRestDay;
+  document.getElementById('setPrevCountsInterval').checked = s.preventionCountsForInterval;
+}
+function numField(key,label,val){
+  return `<label>${label} <input type="number" min="0" data-key="${key}" value="${val}"/></label>`;
+}
+
+function bindSettings(){
+  const map = {
+    setWeeklyRef:'weeklyReferenceHours',
+    setNormalDaily:'normalDailyHours',
+    setCompRestHours:'compRestDayHours',
+    setPrevPaid:'preventionPaidHours'
+  };
+  for(const id in map){
+    document.getElementById(id).addEventListener('change',e=>{
+      state.settings[map[id]] = Number(e.target.value);
+      saveState();
+    });
+  }
+  const cbs = {
+    setDpComplement:'dpAddsComplement',
+    setGlobalCompRest:'globalCountCompRestDay',
+    setPrevCountsInterval:'preventionCountsForInterval'
+  };
+  for(const id in cbs){
+    document.getElementById(id).addEventListener('change',e=>{
+      state.settings[cbs[id]] = e.target.checked;
+      saveState();
+    });
+  }
+}
+
+/* --------- Import / Export --------- */
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='escala_'+iso(new Date())+'.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+function importJSON(ev){
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      const def = defaultState();
+      state = Object.assign(def, obj, {
+        settings: Object.assign(def.settings, obj.settings||{},
+                  {staffing: Object.assign(def.settings.staffing, (obj.settings||{}).staffing||{})}),
+      });
+      saveState(); renderAll();
+      flash('Dados importados com sucesso.','ok');
+    }catch(e){ flash('Erro a importar JSON: '+e.message,'err'); }
+  };
+  reader.readAsText(file);
+}
+
+/* --------- Utils --------- */
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function formatPT(dateISO){
+  if(!dateISO) return '';
+  const d = parseISO(dateISO);
+  return d.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+/* --------- Navegação por abas --------- */
+document.querySelectorAll('#nav button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-'+b.dataset.tab).classList.add('active');
+    if(b.dataset.tab==='funcionarios') renderEmployees();
+    if(b.dataset.tab==='ferias'){ refreshVacEmpOptions(); renderVacations(); }
+    if(b.dataset.tab==='feriados') renderHolidays();
+    if(b.dataset.tab==='anteriores'){ refreshCoEmpOptions(); renderCarryover(); }
+    if(b.dataset.tab==='estatisticas') renderStats();
+    if(b.dataset.tab==='definicoes') renderSettings();
+  });
+});
+
+function renderAll(){
+  document.getElementById('rangeStart').value = state.range.start;
+  document.getElementById('rangeEnd').value = state.range.end;
+  document.getElementById('shiftMode').value = state.settings.shiftMode;
+  document.getElementById('minInterval').value = state.settings.minHoursBetweenShifts;
+  document.getElementById('modeBadge').textContent = 'Modo: '+state.settings.shiftMode;
+  document.getElementById('rangeBadge').textContent = formatPT(state.range.start)+' → '+formatPT(state.range.end);
+  if(!state.calCursor) state.calCursor = state.range.start;
+  renderCalendar();
+  renderEmployees(); refreshVacEmpOptions(); renderVacations();
+  renderHolidays(); refreshCoEmpOptions(); renderCarryover();
+  renderSettings(); renderStats();
+}
+
+document.getElementById('shiftMode').addEventListener('change',e=>{
+  state.settings.shiftMode = e.target.value;
+  document.getElementById('modeBadge').textContent = 'Modo: '+state.settings.shiftMode;
+  saveState(); renderSettings(); renderEmployees();
+});
+document.getElementById('rangeStart').addEventListener('change',e=>{
+  state.range.start = e.target.value; setCalCursor(state.range.start);
+  document.getElementById('rangeBadge').textContent = formatPT(state.range.start)+' → '+formatPT(state.range.end);
+  saveState(); renderCalendar();
+});
+document.getElementById('rangeEnd').addEventListener('change',e=>{
+  state.range.end = e.target.value;
+  document.getElementById('rangeBadge').textContent = formatPT(state.range.start)+' → '+formatPT(state.range.end);
+  saveState();
+});
+document.getElementById('minInterval').addEventListener('change',e=>{
+  state.settings.minHoursBetweenShifts = parseInt(e.target.value,10); saveState();
+});
+
+bindSettings();
+
+function clearSchedule(){
+  if(!confirm('Limpar a escala gerada? Os dados de funcionários e configurações são mantidos.')) return;
+  state.schedule = {}; saveState(); renderCalendar(); renderStats();
+  document.getElementById('genAlerts').innerHTML='';
+}
+
+/* Arranque */
+renderAll();
+</script>
+</body>
+</html>
