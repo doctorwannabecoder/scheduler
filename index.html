@@ -779,6 +779,18 @@ function _runGeneration(alerts){
         const sb = scoreEmployee(stats[b.id], slot.type, kind, b, slot.isPrev);
         return sa - sb;
       });
+      // DEBUG: log why day-only employees are/aren't candidates for day slots
+      if(!slot.isPrev && slot.type==='day'){
+        const watchIds = ['e_1','e_9']; // Cristina D, Carlos L
+        watchIds.forEach(wid=>{
+          const we = state.employees.find(x=>x.id===wid); if(!we) return;
+          const inCandidates = candidates.find(x=>x.id===wid);
+          const rank = inCandidates ? candidates.indexOf(inCandidates)+1 : null;
+          const st = stats[wid];
+          const score = inCandidates ? scoreEmployee(st, slot.type, kind, we, false) : null;
+          console.log(`[DBG] ${date} ${kind} day | ${we.name}: ${inCandidates?`rank ${rank}/${candidates.length} score=${score} total=${st.total} byMonth=${JSON.stringify(st.byMonth)} byWeek=${JSON.stringify(st.byWeek)}`:'NOT candidate'}`);
+        });
+      }
 
       const need = Math.max(0, Number(required)||0);
       totalRequired += need;
