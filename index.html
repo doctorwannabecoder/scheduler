@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Gerador de Escalas — Laboratório</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0f172a; --panel:#111827; --panel2:#1f2937; --line:#334155;
@@ -17,10 +20,16 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);
-    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px}
-  header{padding:12px 16px;background:#0b1220;border-bottom:1px solid var(--line);
+    font-family:'Plus Jakarta Sans',system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;letter-spacing:-0.005em;font-feature-settings:"ss01","cv11"}
+  input,select,textarea,button{font-family:inherit}
+  /* números monoespaçados para tabelas e estatísticas */
+  table, .stat-num, .badge, .pill, input[type=date], input[type=number]{
+    font-variant-numeric:tabular-nums}
+  code, kbd, .mono{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace}
+  header{padding:14px 18px;background:#0b1220;border-bottom:1px solid var(--line);
     display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
-  header h1{font-size:16px;margin:0;font-weight:600}
+  header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-0.02em}
   header .spacer{flex:1}
   nav{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#0b1220;border-bottom:1px solid var(--line);
     position:sticky;top:49px;z-index:4}
@@ -31,10 +40,13 @@
   .tab{display:none}
   .tab.active{display:block}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
-  .card h2{margin:0 0 10px 0;font-size:15px;font-weight:600;color:var(--accent2)}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .card h2{margin:0 0 10px 0;font-size:15px;font-weight:700;color:var(--accent2);letter-spacing:-0.01em}
+  /* alinhamento vertical: labels têm o texto por cima do input,
+     pelo que os botões precisam de descer para ficarem na mesma linha visual */
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
   .row > *{flex:0 0 auto}
-  label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .row > button.btn{align-self:flex-end}
+  label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500}
   input[type=text],input[type=number],input[type=date],select,textarea{
     background:var(--panel2);color:var(--text);border:1px solid var(--line);
     border-radius:6px;padding:6px 8px;font-size:13px}
