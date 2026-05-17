@@ -318,7 +318,7 @@
       </div>
     </div>
     <div class="card">
-      <h2>Mínimo SU por equipa (por dia)</h2>
+      <h2>Mínimo disponível por laboratório (dias úteis)</h2>
       <div class="row" id="suMinArea"></div>
     </div>
     <div class="card">
@@ -669,15 +669,15 @@ function _runGeneration(alerts){
                    lastEnd:lastCarryoverEnd(e.id)};
   });
 
-  // verificar viabilidade estrutural do mínimo SU por equipa
-  const suMinCheck = state.settings.suMinPerTeam||{};
+  // verificar viabilidade estrutural: total de elementos por laboratório >= mínimo configurado
+  const labMin = state.settings.suMinPerTeam||{};
   ['LH','LQC','LM'].forEach(cat=>{
-    const min = suMinCheck[cat]||0;
+    const min = labMin[cat]||0;
     if(min > 0){
-      const suCount = state.employees.filter(e=>e.category===cat && e.isSU).length;
-      if(suCount < min){
+      const total = state.employees.filter(e=>e.category===cat).length;
+      if(total < min){
         issues.push({type:'err',
-          msg:`Equipa ${CATEGORY_LABELS[cat]||cat}: mínimo diário definido como ${min} mas só existem ${suCount} elemento(s) SU disponíveis. Ajuste o mínimo ou marque mais funcionários como SU.`});
+          msg:`Laboratório ${CATEGORY_LABELS[cat]||cat}: mínimo diário definido como ${min} mas a equipa tem apenas ${total} elemento(s). Ajuste o mínimo.`});
       }
     }
   });
@@ -688,13 +688,26 @@ function _runGeneration(alerts){
     state.schedule[date] = {day:{employees:[],prevention:[]},
                             night:{employees:[],prevention:[]},
                             h24:{employees:[],prevention:[]}};
-    const teamDayCount = {}; // equipas já cobertas hoje (turnos normais SU)
+    // labUnavailToday: IDs indisponíveis para o laboratório hoje
+    // (turno noite/24h de ontem + turnos ER dia/24h já atribuídos hoje)
+    const labUnavailToday = new Set();
+    const tomorrowUnavail = new Set(); // quem ficará indisponível amanhã (noite/24h hoje)
+    const prevDate = iso(addDays(parseISO(date), -1));
+    if(state.schedule[prevDate]){
+      state.schedule[prevDate].night.employees.forEach(id=>labUnavailToday.add(id));
+      state.schedule[prevDate].h24.employees.forEach(id=>labUnavailToday.add(id));
+    }
+    // carryover do mês anterior também conta
+    (state.carryover||[]).filter(c=>c.date===prevDate&&(c.type==='night'||c.type==='h24'))
+      .forEach(c=>(c.employees||[]).forEach(id=>labUnavailToday.add(id)));
 
     for(const slot of slots){
       const effectiveType = slot.isPrev ? 'prevention' : slot.type;
       const win = shiftWindow(date, effectiveType);
       const required = slot.required;
       const eligKey = slot.isPrev ? 'prevention' : eligibilityKey(slot.type, kind);
+      const nextDate = iso(addDays(parseISO(date), 1));
+      const nextKind = dayKind(nextDate);
 
       // Selecionar candidatos
       const candidates = state.employees.filter(e=>{
@@ -726,14 +739,33 @@ function _runGeneration(alerts){
           const diffH = (win.start - lastEnd)/3600000;
           if(diffH < state.settings.minHoursBetweenShifts) return false;
         }
+        // mínimo laboratorial: bloquear se a atribuição deixar o laboratório abaixo do mínimo
+        if(!slot.isPrev && ['LH','LQC','LM'].includes(e.category)){
+          const minLab = (labMin[e.category]||0);
+          if(minLab > 0){
+            const teamEmps = state.employees.filter(t=>t.category===e.category);
+            const total = teamEmps.length;
+            // turno dia ou 24h: torna-o indisponível HOJE
+            if((slot.type==='day'||slot.type==='h24') && kind==='weekday'){
+              const vacToday = teamEmps.filter(t=>isOnVacation(t.id,date)).length;
+              const unavToday = teamEmps.filter(t=>labUnavailToday.has(t.id)).length;
+              if(total - vacToday - unavToday - 1 < minLab) return false;
+            }
+            // turno noite ou 24h: torna-o indisponível AMANHÃ
+            if((slot.type==='night'||slot.type==='h24') && nextKind==='weekday'){
+              const vacTomorrow = teamEmps.filter(t=>isOnVacation(t.id,nextDate)).length;
+              const unavTomorrow = teamEmps.filter(t=>tomorrowUnavail.has(t.id)).length;
+              if(total - vacTomorrow - unavTomorrow - 1 < minLab) return false;
+            }
+          }
+        }
         return true;
       });
 
       // Score: menor é melhor
-      const suMin = state.settings.suMinPerTeam||{};
       candidates.sort((a,b)=>{
-        const sa = scoreEmployee(stats[a.id], slot.type, kind, a, teamDayCount, suMin);
-        const sb = scoreEmployee(stats[b.id], slot.type, kind, b, teamDayCount, suMin);
+        const sa = scoreEmployee(stats[a.id], slot.type, kind, a);
+        const sb = scoreEmployee(stats[b.id], slot.type, kind, b);
         return sa - sb;
       });
 
@@ -775,7 +807,9 @@ function _runGeneration(alerts){
           if(kind==='holiday' && slot.type==='night') st.holidayN++;
           const m = date.slice(0,7); st.byMonth[m] = (st.byMonth[m]||0)+1;
           const wk = isoWeekKey(date); st.byWeek[wk] = (st.byWeek[wk]||0)+1;
-          teamDayCount[e.category] = (teamDayCount[e.category]||0)+1;
+          // atualizar disponibilidade laboratorial
+          if(slot.type==='day'||slot.type==='h24') labUnavailToday.add(e.id);
+          if(slot.type==='night'||slot.type==='h24') tomorrowUnavail.add(e.id);
         }
         st.lastEnd = win.end;
       });
@@ -791,15 +825,21 @@ function _runGeneration(alerts){
         });
       }
     }
-    // verificar mínimo SU por equipa para este dia
-    const suMinDay = state.settings.suMinPerTeam||{};
-    ['LH','LQC','LM'].forEach(cat=>{
-      const min = suMinDay[cat]||0;
-      if(min > 0 && (teamDayCount[cat]||0) < min){
-        issues.push({type:'err',
-          msg:`${formatPT(date)}: equipa ${CATEGORY_LABELS[cat]||cat} só tem ${teamDayCount[cat]||0} elemento(s) escalado(s) (mínimo obrigatório: ${min}).`});
-      }
-    });
+    // verificar disponibilidade laboratorial no fim do dia (apenas dias úteis)
+    if(kind==='weekday'){
+      ['LH','LQC','LM'].forEach(cat=>{
+        const min = labMin[cat]||0;
+        if(min === 0) return;
+        const teamEmps = state.employees.filter(e=>e.category===cat);
+        const vacCount = teamEmps.filter(e=>isOnVacation(e.id,date)).length;
+        const unavCount = teamEmps.filter(e=>labUnavailToday.has(e.id)).length;
+        const available = teamEmps.length - vacCount - unavCount;
+        if(available < min){
+          issues.push({type:'err',
+            msg:`${formatPT(date)}: laboratório ${CATEGORY_LABELS[cat]||cat} ficou com ${available} elemento(s) disponíveis (mínimo: ${min}). Verifique férias ou reduza o mínimo.`});
+        }
+      });
+    }
   }
 
   saveState();
@@ -841,7 +881,7 @@ function eligibilityKey(type, kind){
   return k + (type==='day'?'Day':'Night');
 }
 
-function scoreEmployee(s, type, kind, emp, teamDayCount, suMinPerTeam){
+function scoreEmployee(s, type, kind, emp){
   let score = s.total*100;
   if(type==='night') score += s.night*40;
   if(type==='day')   score += s.day*40;
@@ -852,12 +892,6 @@ function scoreEmployee(s, type, kind, emp, teamDayCount, suMinPerTeam){
   }
   // preferir IFE como cobertura flexível quando empatado
   if(emp.category==='IFE1' || emp.category==='IFE4') score -= 2;
-  // preferir equipas que ainda não atingiram o mínimo diário SU
-  if(teamDayCount && suMinPerTeam){
-    const cur = teamDayCount[emp.category]||0;
-    const min = suMinPerTeam[emp.category]||0;
-    if(cur < min) score -= 60;
-  }
   score += (Math.abs(hashString(emp.id)) % 7);
   return score;
 }
