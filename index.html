@@ -15,7 +15,8 @@
     --LH:#60a5fa;   /* azul */
     --LQC:#f472b6;  /* rosa */
     --LM:#34d399;   /* verde */
-    --Interno:#fbbf24; /* amarelo */
+    --IFE1:#fbbf24;  /* amarelo — IFE 1-3 */
+    --IFE4:#fb923c;  /* laranja — IFE 4-5 */
     --day:#0ea5e9; --night:#7c3aed; --h24:#f43f5e; --prev:#9ca3af;
   }
   :root{ --sidebar-w:210px; --header-h:53px; }
@@ -78,7 +79,8 @@
   .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;
     font-size:12px;font-weight:600;color:#0b1220;margin:2px}
   .chip.LH{background:var(--LH)} .chip.LQC{background:var(--LQC)}
-  .chip.LM{background:var(--LM)} .chip.Interno{background:var(--Interno)}
+  .chip.LM{background:var(--LM)}
+  .chip.IFE1{background:var(--IFE1)} .chip.IFE4{background:var(--IFE4)}
   .chip.prev{background:var(--prev);color:#1c1300}
   .badge{font-size:11px;padding:1px 5px;border-radius:6px;background:#0b1220;border:1px solid var(--line);color:var(--muted)}
   /* Calendário */
@@ -172,7 +174,7 @@
         <span class="spacer"></span>
         <span class="small">Legenda:
           <span class="chip LH">LH</span><span class="chip LQC">LQC</span>
-          <span class="chip LM">LM</span><span class="chip Interno">Interno</span>
+          <span class="chip LM">LM</span><span class="chip IFE1">IFE 1-3</span><span class="chip IFE4">IFE 4-5</span>
           <span class="pill" style="border-left:3px solid var(--day)">Dia</span>
           <span class="pill" style="border-left:3px solid var(--night)">Noite</span>
           <span class="pill" style="border-left:3px solid var(--h24)">24h</span>
@@ -367,7 +369,8 @@
 
 const LS_KEY = 'escala_lab_v1';
 
-const CATEGORIES = ['LH','LQC','LM','Interno'];
+const CATEGORIES = ['LH','LQC','LM','IFE1','IFE4'];
+const CATEGORY_LABELS = {LH:'LH', LQC:'LQC', LM:'LM', IFE1:'IFE 1-3', IFE4:'IFE 4-5'};
 
 // Elegibilidade simplificada: feriados usam as mesmas permissões que fins-de-semana.
 // As 3 colunas agrupadas são: [Sem D] | [Sem N + FDS D] | [FDS N + P]
@@ -412,8 +415,8 @@ function defaultState(){
       emp(1,'LH'), emp(2,'LH'), emp(3,'LH', dayOnly),
       emp(4,'LQC'), emp(5,'LQC'), emp(6,'LQC'),
       emp(7,'LM'), emp(8,'LM'), emp(9,'LM', dayOnly),
-      emp(10,'Interno'), emp(11,'Interno'), emp(12,'Interno'),
-      emp(13,'Interno'), emp(14,'Interno')
+      emp(10,'IFE1'), emp(11,'IFE1'), emp(12,'IFE1'),
+      emp(13,'IFE4'), emp(14,'IFE4')
     ],
     vacations:[],
     folgas:[],
@@ -472,7 +475,7 @@ function migrateState(parsed){
   // funcionários — garantir todas as chaves de elegibilidade
   merged.employees = (parsed.employees||def.employees).map(e=>{
     // migrate old 'FLEX' category to 'Interno'
-    const cat = e.category === 'FLEX' ? 'Interno' : (CATEGORIES.includes(e.category) ? e.category : 'Interno');
+    const cat = (e.category==='FLEX'||e.category==='Interno') ? 'IFE1' : (CATEGORIES.includes(e.category) ? e.category : 'IFE1');
     return Object.assign({
       id:e.id||('e_'+Math.random().toString(36).slice(2)),
       name:e.name||'Funcionário',
@@ -480,7 +483,7 @@ function migrateState(parsed){
       maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:8,
       maxErPerWeek:(typeof e.maxErPerWeek==='number'?e.maxErPerWeek:2)||null,
       notes:e.notes||'',
-      isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (e.category==='Interno'||e.category==='FLEX')
+      isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (cat==='IFE1')
     }, e, {
       category: cat,
       eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, e.eligibility||{})
@@ -777,8 +780,8 @@ function scoreEmployee(s, type, kind, emp){
     if(type==='night') score += s.weekendN*20;
     if(type==='h24')   score += s.weekendN*20;
   }
-  // preferir Internos como cobertura flexível quando empatado
-  if(emp.isInterno) score -= 2;
+  // preferir IFE como cobertura flexível quando empatado
+  if(emp.category==='IFE1' || emp.category==='IFE4') score -= 2;
   // pequena perturbação determinística para evitar empates persistentes
   score += (Math.abs(hashString(emp.id)) % 7);
   return score;
@@ -896,8 +899,9 @@ function renderCalendar(){
 function renderChip(empId, isPrev){
   const e = state.employees.find(x=>x.id===empId);
   if(!e) return '';
+  const label = CATEGORY_LABELS[e.category]||e.category;
   const p = isPrev ? ' <span class="badge" style="background:#9ca3af;color:#1c1300;border-color:#9ca3af">P</span>' : '';
-  return `<span class="chip ${e.category}" title="${e.name} (${e.category})">${e.name}${p}</span>`;
+  return `<span class="chip ${e.category}" title="${e.name} (${label})">${e.name}${p}</span>`;
 }
 
 function renderAlerts(issues){
@@ -945,7 +949,7 @@ function renderEmployees(){
   tb.innerHTML='';
   state.employees.forEach(e=>{
     const tr = document.createElement('tr');
-    const catSel = CATEGORIES.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('');
+    const catSel = CATEGORIES.map(c=>`<option value="${c}" ${e.category===c?'selected':''}>${CATEGORY_LABELS[c]||c}</option>`).join('');
     const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''}/>`;
     // Checkbox de grupo: um tick controla todas as chaves do grupo
     const cbg = (keys, empId) => {
@@ -999,7 +1003,7 @@ function renderEmployees(){
 function addEmployee(){
   const n = state.employees.length+1;
   state.employees.push({
-    id:'e_'+Date.now(), name:'E'+n, category:'Interno',
+    id:'e_'+Date.now(), name:'E'+n, category:'IFE1',
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
     maxErPerMonth:8, maxErPerWeek:2, notes:'',
     isInterno: true
@@ -1305,7 +1309,7 @@ function renderStats(){
     const tr = document.createElement('tr');
     const cells = [];
     cells.push(`<strong>${e.name}</strong>`);
-    cells.push(`<span class="chip ${e.category}">${e.category}</span>`);
+    cells.push(`<span class="chip ${e.category}">${CATEGORY_LABELS[e.category]||e.category}</span>`);
     cells.push(`<span class="stat-num">${t.total}</span>`);
     if(mode==='12h'){
       cells.push(t.weekday_day||0); cells.push(t.weekday_night||0);
