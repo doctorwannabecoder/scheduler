@@ -418,21 +418,43 @@ const PT_TOLERANCIA_FIXED = [
 
 /* --------- Estado inicial --------- */
 function defaultState(){
-  const emp = (n, cat, elig=null, interno=null) => ({
-    id:'e_'+n, name:'E'+n, category:cat,
+  const emp = (id, name, cat, elig=null, interno=null) => ({
+    id, name, category:cat,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
     maxErPerMonth:8, maxErPerWeek:2, notes:'',
-    isInterno: interno !== null ? interno : (cat === 'Interno')
+    isInterno: interno !== null ? interno : (cat === 'IFE1')
   });
-  const dayOnly = {weekdayNight:false, weekendNight:false, prevention:false,
-                   weekday24:false, weekend24:false};
+  // padrões de elegibilidade reutilizáveis
+  const noNightNoPrev  = {weekdayNight:false, weekendNight:false, prevention:false};
+  const no24h          = {weekday24:false, weekend24:false};
+  const h24Only        = {weekdayDay:false, weekdayNight:false, weekendDay:false, weekendNight:false, prevention:false};
+  const dayNoNightNo24 = {weekdayNight:false, weekendNight:false, prevention:false, weekday24:false, weekend24:false};
   return {
     employees:[
-      emp(1,'LH'), emp(2,'LH'), emp(3,'LH', dayOnly),
-      emp(4,'LQC'), emp(5,'LQC'), emp(6,'LQC'),
-      emp(7,'LM'), emp(8,'LM'), emp(9,'LM', dayOnly),
-      emp(10,'IFE1'), emp(11,'IFE1'), emp(12,'IFE1'),
-      emp(13,'IFE4'), emp(14,'IFE4')
+      // LH
+      emp('e_1',  'Cristina D',  'LH',  noNightNoPrev),
+      emp('e_2',  'Sara I',      'LH'),
+      emp('e_3',  'Marco P',     'LH',  no24h),
+      emp('e_4',  'Naseelah M',  'LH'),
+      emp('e_5',  'Ana B',       'LH'),
+      // LQC
+      emp('e_6',  'Cristina VC', 'LQC'),
+      emp('e_7',  'Gabriela M',  'LQC'),
+      emp('e_8',  'Filipa P',    'LQC'),
+      emp('e_9',  'Carlos L',    'LQC', dayNoNightNo24),
+      emp('e_10', 'Miguel J',    'LQC'),
+      // LM
+      emp('e_11', 'Maria L',     'LM'),
+      emp('e_12', 'Ana F',       'LM',  h24Only),
+      emp('e_13', 'Samuel L',    'LM',  h24Only),
+      emp('e_14', 'Pedro C',     'LM',  h24Only),
+      emp('e_15', 'Carlos R',    'LM',  h24Only),
+      emp('e_16', 'Yuliya V',    'LM'),
+      emp('e_17', 'Bruno C',     'LM'),
+      // IFE 1-3
+      emp('e_18', 'Joana P',     'IFE1', noNightNoPrev),
+      emp('e_19', 'Sueila S',    'IFE1', noNightNoPrev),
+      emp('e_20', 'Selay D',     'IFE1', noNightNoPrev),
     ],
     vacations:[],
     folgas:[],
@@ -444,13 +466,13 @@ function defaultState(){
       shiftMode:'12h',
       staffing:{
         weekdayDay:1,    weekdayDayPrev:0,
-        weekdayNight:1,  weekdayNightPrev:0,
-        weekendDay:1,    weekendDayPrev:0,
-        weekendNight:1,  weekendNightPrev:0,
-        weekday24:1,     weekday24Prev:0,
-        weekend24:1,     weekend24Prev:0
+        weekdayNight:2,  weekdayNightPrev:0,
+        weekendDay:2,    weekendDayPrev:0,
+        weekendNight:1,  weekendNightPrev:1,
+        weekday24:2,     weekday24Prev:1,
+        weekend24:2,     weekend24Prev:1
       },
-      minHoursBetweenShifts:24,
+      minHoursBetweenShifts:48,
       preventionCountsForInterval:false,
     },
     carryover:[],
