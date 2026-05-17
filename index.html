@@ -77,6 +77,7 @@
   input[type=checkbox]:checked{
     background:var(--accent); border-color:var(--accent);
   }
+  input[type=checkbox]:disabled{opacity:.3;cursor:not-allowed}
   input[type=checkbox]:checked::after{
     content:'✓'; position:absolute;
     inset:0; display:flex; align-items:center; justify-content:center;
@@ -1071,7 +1072,7 @@ function renderEmployees(){
   state.employees.forEach(e=>{
     const tr = document.createElement('tr');
     const catSel = CATEGORIES.map(c=>`<option value="${c}" ${e.category===c?'selected':''}>${CATEGORY_LABELS[c]||c}</option>`).join('');
-    const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''}/>`;
+    const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''} ${!e.isSU?'disabled':''}/>`;
     let eligCells = '';
     if(mode==='12h'){
       eligCells = `
@@ -1106,8 +1107,15 @@ function renderEmployees(){
         e.eligibility[el.dataset.elig] = el.checked;
       } else {
         const f = el.dataset.field;
-        if(el.type==='checkbox') e[f] = el.checked;
-        else if(el.type==='number') e[f] = el.value===''?null:Number(el.value);
+        if(el.type==='checkbox'){
+          e[f] = el.checked;
+          // ao ligar/desligar SU, bloquear/desbloquear os checkboxes de elegibilidade
+          if(f==='isSU'){
+            el.closest('tr').querySelectorAll('input[data-elig]').forEach(cb=>{
+              cb.disabled = !el.checked;
+            });
+          }
+        } else if(el.type==='number') e[f] = el.value===''?null:Number(el.value);
         else {
           e[f] = el.value;
           // ao mudar equipa, actualizar isInterno automaticamente
