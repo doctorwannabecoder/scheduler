@@ -944,20 +944,21 @@ function renderEmployees(){
   const headRow = document.getElementById('empHeadRow');
   const mode = state.settings.shiftMode;
 
-  // Cabeçalhos: 2 colunas de elegibilidade (12h) ou 2 (24h) — Sem D é universal
   let eligHeads;
   if(mode==='12h'){
     eligHeads = `
-      <th class="center" style="min-width:90px" title="Trabalho noturno em semana + Turno de dia ao fim-de-semana">Sem N + FDS D</th>
-      <th class="center" style="min-width:90px" title="Turno noturno ao fim-de-semana + Prevenção">FDS N + P</th>`;
+      <th class="center" title="Semana Dia">Sem D</th>
+      <th class="center" title="Semana Noite">Sem N</th>
+      <th class="center" title="Fim-de-semana Dia">FDS D</th>
+      <th class="center" title="Fim-de-semana Noite">FDS N</th>
+      <th class="center" title="Prevenção">P</th>`;
   } else {
     eligHeads = `
-      <th class="center">24h Semana</th>
+      <th class="center">24h Sem.</th>
       <th class="center">24h FDS</th>`;
   }
   headRow.innerHTML = `
     <th>Nome</th><th>Equipa</th>
-    <th class="center" title="Residente interno — pairing constraint: máx. 1 por turno">Int.</th>
     ${eligHeads}
     <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
     <th>Notas</th><th></th>`;
@@ -967,27 +968,22 @@ function renderEmployees(){
     const tr = document.createElement('tr');
     const catSel = CATEGORIES.map(c=>`<option value="${c}" ${e.category===c?'selected':''}>${CATEGORY_LABELS[c]||c}</option>`).join('');
     const cb = (key)=>`<input type="checkbox" data-emp="${e.id}" data-elig="${key}" ${e.eligibility[key]?'checked':''}/>`;
-    // Checkbox de grupo: um tick controla todas as chaves do grupo
-    const cbg = (keys, empId) => {
-      const checked = e.eligibility[keys[0]];
-      return `<input type="checkbox" data-emp="${empId}" data-grp="${keys.join(',')}" ${checked?'checked':''}/>`;
-    };
     let eligCells = '';
     if(mode==='12h'){
-      // Coluna 1: Sem N + FDS D (um tick)  |  Coluna 2: FDS N + P (um tick)
-      // Sem D é universal — não precisa de controlo
       eligCells = `
-        <td class="center">${cbg(['weekdayNight','weekendDay'], e.id)}</td>
-        <td class="center">${cbg(['weekendNight','prevention'], e.id)}</td>`;
+        <td class="center">${cb('weekdayDay')}</td>
+        <td class="center">${cb('weekdayNight')}</td>
+        <td class="center">${cb('weekendDay')}</td>
+        <td class="center">${cb('weekendNight')}</td>
+        <td class="center">${cb('prevention')}</td>`;
     } else {
       eligCells = `
-        <td class="center">${cbg(['weekday24'], e.id)}</td>
-        <td class="center">${cbg(['weekend24'], e.id)}</td>`;
+        <td class="center">${cb('weekday24')}</td>
+        <td class="center">${cb('weekend24')}</td>`;
     }
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
       <td><select data-emp="${e.id}" data-field="category" title="Equipa">${catSel}</select></td>
-      <td class="center"><input type="checkbox" data-emp="${e.id}" data-field="isInterno" ${e.isInterno?'checked':''}/></td>
       ${eligCells}
       <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:55px"/></td>
       <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:55px"/></td>
@@ -1001,14 +997,17 @@ function renderEmployees(){
     el.addEventListener('change',()=>{
       const id = el.dataset.emp;
       const e = state.employees.find(x=>x.id===id); if(!e) return;
-      if(el.dataset.grp){
-        // checkbox de grupo: aplica o mesmo valor a todas as chaves
-        el.dataset.grp.split(',').forEach(k=>{ e.eligibility[k] = el.checked; });
+      if(el.dataset.elig){
+        e.eligibility[el.dataset.elig] = el.checked;
       } else {
         const f = el.dataset.field;
         if(el.type==='checkbox') e[f] = el.checked;
         else if(el.type==='number') e[f] = el.value===''?null:Number(el.value);
-        else e[f] = el.value;
+        else {
+          e[f] = el.value;
+          // ao mudar equipa, actualizar isInterno automaticamente
+          if(f==='category') e.isInterno = (el.value==='IFE1');
+        }
       }
       saveState();
       refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
