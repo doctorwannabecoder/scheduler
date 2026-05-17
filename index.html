@@ -648,6 +648,8 @@ function _runGeneration(alerts){
             if(wkCount >= e.maxErPerWeek) return false;
           }
         }
+        // Interno não pode fazer Sem D sozinho (required=1 → ficaria único)
+        if(!slot.isPrev && e.isInterno && slot.type==='day' && kind==='weekday' && required===1) return false;
         // já está atribuído nalgum turno desse dia?
         const sd = state.schedule[date];
         if(sd.day.employees.includes(e.id) || sd.day.prevention.includes(e.id) ||
