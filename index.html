@@ -81,7 +81,6 @@
   .chip.LM{background:var(--LM)} .chip.Interno{background:var(--Interno)}
   .chip.prev{background:var(--prev);color:#1c1300}
   .badge{font-size:11px;padding:1px 5px;border-radius:6px;background:#0b1220;border:1px solid var(--line);color:var(--muted)}
-  .badge.dp{background:#3b82f6;color:#fff;border-color:#3b82f6}
   /* Calendário */
   .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;background:#0b1220;padding:4px;border-radius:8px}
   .calendar .head{padding:6px;text-align:center;color:var(--muted);font-weight:600;font-size:12px}
@@ -284,12 +283,7 @@
           <thead></thead><tbody></tbody>
         </table>
       </div>
-      <p class="small">Horas extra calculadas semana a semana (Segunda a Domingo).
-        Prevenção (P) é contada em separado e não entra no total de turnos ER nem no limite mensal.</p>
-    </div>
-    <div class="card">
-      <h2>Horas extra por semana</h2>
-      <div id="weeklyExtra"></div>
+      <p class="small">Prevenção (P) é contada em separado e não entra no total de turnos ER nem no limite mensal.</p>
     </div>
   </section>
 
@@ -405,19 +399,19 @@ const PT_TOLERANCIA_FIXED = [
 
 /* --------- Estado inicial --------- */
 function defaultState(){
-  const emp = (n, cat, dp=false, elig=null, interno=null) => ({
-    id:'e_'+n, name:'E'+n, category:cat, dedicacaoPlena:dp,
+  const emp = (n, cat, elig=null, interno=null) => ({
+    id:'e_'+n, name:'E'+n, category:cat,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
-    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:'',
+    maxErPerMonth:8, maxErPerWeek:2, notes:'',
     isInterno: interno !== null ? interno : (cat === 'Interno')
   });
   const dayOnly = {weekdayNight:false, weekendNight:false, prevention:false,
                    weekday24:false, weekend24:false};
   return {
     employees:[
-      emp(1,'LH'), emp(2,'LH'), emp(3,'LH', true, dayOnly),
+      emp(1,'LH'), emp(2,'LH'), emp(3,'LH', dayOnly),
       emp(4,'LQC'), emp(5,'LQC'), emp(6,'LQC'),
-      emp(7,'LM'), emp(8,'LM'), emp(9,'LM', false, dayOnly),
+      emp(7,'LM'), emp(8,'LM'), emp(9,'LM', dayOnly),
       emp(10,'Interno'), emp(11,'Interno'), emp(12,'Interno'),
       emp(13,'Interno'), emp(14,'Interno')
     ],
@@ -439,12 +433,6 @@ function defaultState(){
       },
       minHoursBetweenShifts:24,
       preventionCountsForInterval:false,
-      weeklyReferenceHours:40,
-      normalDailyHours:7,
-      dpAddsComplement:false,
-      compRestDayHours:7,
-      globalCountCompRestDay:false,
-      preventionPaidHours:0
     },
     carryover:[],
     schedule:{},   // {date:{day:{employees:[],prevention:[]}, night:{...}, h24:{...}}}
@@ -489,10 +477,8 @@ function migrateState(parsed){
       id:e.id||('e_'+Math.random().toString(36).slice(2)),
       name:e.name||'Funcionário',
       category:cat,
-      dedicacaoPlena:!!e.dedicacaoPlena,
       maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:8,
       maxErPerWeek:(typeof e.maxErPerWeek==='number'?e.maxErPerWeek:2)||null,
-      countCompRestDay:e.countCompRestDay!==false,
       notes:e.notes||'',
       isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (e.category==='Interno'||e.category==='FLEX')
     }, e, {
@@ -936,7 +922,7 @@ function renderEmployees(){
   const headRow = document.getElementById('empHeadRow');
   const mode = state.settings.shiftMode;
 
-  // Cabeçalhos: 2 colunas de elegibilidade (12h) ou 2 (24h) — Sem D é universal, DP gerido internamente
+  // Cabeçalhos: 2 colunas de elegibilidade (12h) ou 2 (24h) — Sem D é universal
   let eligHeads;
   if(mode==='12h'){
     eligHeads = `
@@ -1011,9 +997,9 @@ function renderEmployees(){
 function addEmployee(){
   const n = state.employees.length+1;
   state.employees.push({
-    id:'e_'+Date.now(), name:'E'+n, category:'Interno', dedicacaoPlena:false,
+    id:'e_'+Date.now(), name:'E'+n, category:'Interno',
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
-    maxErPerMonth:8, maxErPerWeek:2, countCompRestDay:true, notes:'',
+    maxErPerMonth:8, maxErPerWeek:2, notes:'',
     isInterno: true
   });
   saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions(); refreshFolgaEmpOptions();
@@ -1028,7 +1014,6 @@ function copyEmployee(){
     id:'e_'+Date.now(),
     name: source.name+' (cópia)',
     category: source.category,
-    dedicacaoPlena: source.dedicacaoPlena,
     eligibility: Object.assign({}, source.eligibility),
     maxErPerMonth: source.maxErPerMonth,
     maxErPerWeek: source.maxErPerWeek,
@@ -1283,9 +1268,9 @@ function renderStats(){
 
   let cols;
   if(mode==='12h'){
-    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER','Cred./sem (média)','Extras Mês'];
+    cols = ['Func.','Cat.','Total ER','Dia Sem.','Noi. Sem.','Dia FdS','Noi. FdS','P','Limite','Horas ER'];
   } else {
-    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER','Cred./sem (média)','Extras Mês'];
+    cols = ['Func.','Cat.','Total ER','24h Sem.','24h FdS','P','Limite','Horas ER'];
   }
   thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
 
@@ -1312,19 +1297,13 @@ function renderStats(){
     });
   });
 
-  // Cálculo de horas extra por semana, depois somar mês
-  const weeklyData = computeWeeklyExtras(dates);
-
   tb.innerHTML='';
   state.employees.forEach(e=>{
     const t = tally[e.id];
-    const week = weeklyData.perEmployee[e.id] || {totals:{credited:0,extras:0,count:0}, weeks:[]};
-    const avgCred = week.totals.count ? (week.totals.credited / week.totals.count).toFixed(1) : '—';
-    const extras = week.totals.extras.toFixed(1);
     const tr = document.createElement('tr');
     const cells = [];
     cells.push(`<strong>${e.name}</strong>`);
-    cells.push(`<span class="chip ${e.category}">${e.category}</span>${e.dedicacaoPlena?'<span class="badge dp" style="margin-left:4px" title="Dedicação Plena">DP</span>':''}`);
+    cells.push(`<span class="chip ${e.category}">${e.category}</span>`);
     cells.push(`<span class="stat-num">${t.total}</span>`);
     if(mode==='12h'){
       cells.push(t.weekday_day||0); cells.push(t.weekday_night||0);
@@ -1335,96 +1314,10 @@ function renderStats(){
     cells.push(`<strong style="color:var(--prev)">${t.P}</strong>`);
     cells.push(`${t.total}/${e.maxErPerMonth||'∞'}`);
     cells.push(t.rawHours+'h');
-    cells.push(avgCred+'h');
-    cells.push(extras+'h');
     tr.innerHTML = cells.map(c=>`<td>${c}</td>`).join('');
     tb.appendChild(tr);
   });
 
-  // Tabela semanal
-  const wbox = document.getElementById('weeklyExtra');
-  if(!weeklyData.weeks.length){ wbox.innerHTML='<p class="small">Sem dados.</p>'; return; }
-  let html = '<table><thead><tr><th>Semana</th>';
-  state.employees.forEach(e=> html += `<th>${e.name}</th>`);
-  html += '</tr></thead><tbody>';
-  weeklyData.weeks.forEach(wk=>{
-    html += `<tr><td><strong>${wk}</strong></td>`;
-    state.employees.forEach(e=>{
-      const w = (weeklyData.perEmployee[e.id]?.weeks||[]).find(x=>x.week===wk);
-      const v = w ? w.extras : 0;
-      const color = v>0 ? 'color:var(--warn);font-weight:600' : 'color:var(--muted)';
-      html += `<td style="${color}">${v.toFixed(1)}h</td>`;
-    });
-    html += '</tr>';
-  });
-  html += '</tbody></table>';
-  wbox.innerHTML = html;
-}
-
-/* Horas extra (cálculo semanal Seg-Dom) */
-function computeWeeklyExtras(dates){
-  const cfg = state.settings;
-  const result = {weeks:[], perEmployee:{}};
-  // Agrupar dias por semana ISO
-  const weekMap = {};
-  dates.forEach(d=>{
-    const k = isoWeekKey(d);
-    (weekMap[k] = weekMap[k]||[]).push(d);
-  });
-  const weeks = Object.keys(weekMap).sort();
-  result.weeks = weeks;
-
-  state.employees.forEach(e=>{
-    result.perEmployee[e.id] = {weeks:[], totals:{credited:0,extras:0,count:0}};
-    weeks.forEach(wk=>{
-      const wkDays = weekMap[wk];
-      let erDay=0, erNight=0, erH24=0, compRestDays=0;
-      let erDaysSet = new Set(); // dias úteis "ocupados" por turno ER
-      wkDays.forEach(d=>{
-        const sd = state.schedule[d]; if(!sd) return;
-        const kind = dayKind(d);
-        const isWorkday = kind==='weekday';
-        if(sd.day.employees.includes(e.id)){
-          erDay++; if(isWorkday) erDaysSet.add(d);
-        }
-        if(sd.night.employees.includes(e.id)){
-          erNight++;
-          // descanso compensatório = dia seguinte
-          if(shouldCountCompRest(e)) compRestDays++;
-        }
-        if(sd.h24.employees.includes(e.id)){
-          erH24++; if(isWorkday) erDaysSet.add(d);
-          if(shouldCountCompRest(e)) compRestDays++;
-        }
-      });
-      // dias úteis da semana (Seg-Sex que não são feriado e não estão em férias)
-      const workdays = wkDays.filter(d=> dayKind(d)==='weekday' && !isOnVacation(e.id,d)).length;
-      const normalWorkdays = Math.max(0, workdays - erDaysSet.size);
-
-      let credited = normalWorkdays * cfg.normalDailyHours
-                   + erDay*12 + erNight*12 + erH24*24
-                   + compRestDays * cfg.compRestDayHours;
-
-      // DP complemento (se ativo)
-      if(cfg.dpAddsComplement && e.dedicacaoPlena){
-        const complement = Math.max(0, cfg.weeklyReferenceHours - 5*cfg.normalDailyHours);
-        credited += complement;
-      }
-
-      const extras = Math.max(0, credited - cfg.weeklyReferenceHours);
-      result.perEmployee[e.id].weeks.push({week:wk, credited, extras});
-      result.perEmployee[e.id].totals.credited += credited;
-      result.perEmployee[e.id].totals.extras += extras;
-      result.perEmployee[e.id].totals.count++;
-    });
-  });
-  return result;
-}
-
-function shouldCountCompRest(emp){
-  // O direito ao dia de descanso compensatório está ligado à Dedicação Plena.
-  return state.settings.globalCountCompRestDay && !!emp.dedicacaoPlena;
-}
 
 /* --------- Definições --------- */
 function renderSettings(){
