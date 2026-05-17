@@ -914,9 +914,17 @@ function scoreEmployee(s, type, kind, emp, isPrev){
   const canH24 = mode24 && (emp.eligibility.weekday24 || emp.eligibility.weekend24);
   const typeVariety = [canDay, canNight, canH24].filter(Boolean).length;
   if(typeVariety > 1){
+    // Multi-type employees: strong same-type penalty (×80) to encourage variety
     if(type==='night') score += s.night * 80;
     if(type==='day')   score += s.day   * 80;
     if(type==='h24')   score += s.h24   * 80;
+  } else {
+    // Single-type employees: lighter penalty (×40) so their score grows at a
+    // comparable rate to multi-type employees, preventing them from monopolising
+    // their slot type simply because they never accumulate the ×80 penalty
+    if(type==='day')   score += s.day   * 40;
+    if(type==='night') score += s.night * 40;
+    if(type==='h24')   score += s.h24   * 40;
   }
   // Tertiary: weekend/holiday burden within nights and 24h
   if(kind==='weekend' || kind==='holiday'){
