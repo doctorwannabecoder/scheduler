@@ -318,6 +318,10 @@
       </div>
     </div>
     <div class="card">
+      <h2>Mínimo SU por equipa (por dia)</h2>
+      <div class="row" id="suMinArea"></div>
+    </div>
+    <div class="card">
       <h2>Dias anteriores (carryover)</h2>
       <p class="small">Introduza os últimos turnos do mês anterior para garantir que os intervalos mínimos são respeitados.
         Estes turnos não contam para o limite mensal nem aparecem na escala gerada.</p>
@@ -418,11 +422,12 @@ const PT_TOLERANCIA_FIXED = [
 
 /* --------- Estado inicial --------- */
 function defaultState(){
-  const emp = (id, name, cat, elig=null, interno=null) => ({
+  const emp = (id, name, cat, elig=null, interno=null, su=true) => ({
     id, name, category:cat,
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, elig||{}),
     maxErPerMonth:8, maxErPerWeek:2, notes:'',
-    isInterno: interno !== null ? interno : (cat === 'IFE1')
+    isInterno: interno !== null ? interno : (cat === 'IFE1'),
+    isSU: su
   });
   // padrões de elegibilidade reutilizáveis
   const noNightNoPrev  = {weekdayNight:false, weekendNight:false, prevention:false};
@@ -474,6 +479,7 @@ function defaultState(){
       },
       minHoursBetweenShifts:48,
       preventionCountsForInterval:false,
+      suMinPerTeam:{LH:1, LQC:1, LM:1, IFE1:0, IFE4:0}
     },
     carryover:[],
     schedule:{},   // {date:{day:{employees:[],prevention:[]}, night:{...}, h24:{...}}}
@@ -510,6 +516,7 @@ function migrateState(parsed){
   // settings
   merged.settings = Object.assign({}, def.settings, parsed.settings||{});
   merged.settings.staffing = Object.assign({}, def.settings.staffing, (parsed.settings||{}).staffing||{});
+  merged.settings.suMinPerTeam = Object.assign({}, def.settings.suMinPerTeam, (parsed.settings||{}).suMinPerTeam||{});
   // funcionários — garantir todas as chaves de elegibilidade
   merged.employees = (parsed.employees||def.employees).map(e=>{
     // migrate old 'FLEX' category to 'Interno'
@@ -521,7 +528,8 @@ function migrateState(parsed){
       maxErPerMonth:typeof e.maxErPerMonth==='number'?e.maxErPerMonth:8,
       maxErPerWeek:(typeof e.maxErPerWeek==='number'?e.maxErPerWeek:2)||null,
       notes:e.notes||'',
-      isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (cat==='IFE1')
+      isInterno: typeof e.isInterno === 'boolean' ? e.isInterno : (cat==='IFE1'),
+      isSU: typeof e.isSU === 'boolean' ? e.isSU : true
     }, e, {
       category: cat,
       eligibility: Object.assign({}, DEFAULT_ELIGIBILITY, e.eligibility||{})
@@ -667,6 +675,7 @@ function _runGeneration(alerts){
     state.schedule[date] = {day:{employees:[],prevention:[]},
                             night:{employees:[],prevention:[]},
                             h24:{employees:[],prevention:[]}};
+    const teamDayCount = {}; // equipas já cobertas hoje (turnos normais SU)
 
     for(const slot of slots){
       const effectiveType = slot.isPrev ? 'prevention' : slot.type;
@@ -689,6 +698,8 @@ function _runGeneration(alerts){
             if(wkCount >= e.maxErPerWeek) return false;
           }
         }
+        // apenas funcionários SU fazem turnos ER
+        if(!e.isSU) return false;
         // Interno não pode fazer Sem D sozinho (required=1 → ficaria único)
         if(!slot.isPrev && e.isInterno && slot.type==='day' && kind==='weekday' && required===1) return false;
         // já está atribuído nalgum turno desse dia?
@@ -706,9 +717,10 @@ function _runGeneration(alerts){
       });
 
       // Score: menor é melhor
+      const suMin = state.settings.suMinPerTeam||{};
       candidates.sort((a,b)=>{
-        const sa = scoreEmployee(stats[a.id], slot.type, kind, a);
-        const sb = scoreEmployee(stats[b.id], slot.type, kind, b);
+        const sa = scoreEmployee(stats[a.id], slot.type, kind, a, teamDayCount, suMin);
+        const sb = scoreEmployee(stats[b.id], slot.type, kind, b, teamDayCount, suMin);
         return sa - sb;
       });
 
@@ -750,6 +762,7 @@ function _runGeneration(alerts){
           if(kind==='holiday' && slot.type==='night') st.holidayN++;
           const m = date.slice(0,7); st.byMonth[m] = (st.byMonth[m]||0)+1;
           const wk = isoWeekKey(date); st.byWeek[wk] = (st.byWeek[wk]||0)+1;
+          teamDayCount[e.category] = (teamDayCount[e.category]||0)+1;
         }
         st.lastEnd = win.end;
       });
@@ -765,6 +778,15 @@ function _runGeneration(alerts){
         });
       }
     }
+    // verificar mínimo SU por equipa para este dia
+    const suMinDay = state.settings.suMinPerTeam||{};
+    CATEGORIES.forEach(cat=>{
+      const min = suMinDay[cat]||0;
+      if(min > 0 && (teamDayCount[cat]||0) < min){
+        issues.push({type:'warn',
+          msg:`${formatPT(date)}: equipa ${CATEGORY_LABELS[cat]||cat} tem ${teamDayCount[cat]||0} elemento(s) SU (mínimo: ${min}).`});
+      }
+    });
   }
 
   saveState();
@@ -806,21 +828,23 @@ function eligibilityKey(type, kind){
   return k + (type==='day'?'Day':'Night');
 }
 
-function scoreEmployee(s, type, kind, emp){
-  // Equidade: menor total → maior prioridade.
+function scoreEmployee(s, type, kind, emp, teamDayCount, suMinPerTeam){
   let score = s.total*100;
-  // penalizar quem já tem muitas do mesmo tipo
   if(type==='night') score += s.night*40;
   if(type==='day')   score += s.day*40;
   if(type==='h24')   score += s.h24*40;
-  // penalizar quem já tem muitas noites de fds/feriado
   if(kind==='weekend' || kind==='holiday'){
     if(type==='night') score += s.weekendN*20;
     if(type==='h24')   score += s.weekendN*20;
   }
   // preferir IFE como cobertura flexível quando empatado
   if(emp.category==='IFE1' || emp.category==='IFE4') score -= 2;
-  // pequena perturbação determinística para evitar empates persistentes
+  // preferir equipas que ainda não atingiram o mínimo diário SU
+  if(teamDayCount && suMinPerTeam){
+    const cur = teamDayCount[emp.category]||0;
+    const min = suMinPerTeam[emp.category]||0;
+    if(cur < min) score -= 60;
+  }
   score += (Math.abs(hashString(emp.id)) % 7);
   return score;
 }
@@ -981,6 +1005,7 @@ function renderEmployees(){
   }
   headRow.innerHTML = `
     <th>Nome</th><th>Equipa</th>
+    <th class="center" title="Faz Serviço de Urgência">SU</th>
     ${eligHeads}
     <th class="center">Máx/mês</th><th class="center">Máx/sem</th>
     <th>Notas</th><th></th>`;
@@ -1006,6 +1031,7 @@ function renderEmployees(){
     tr.innerHTML = `
       <td><input type="text" value="${escapeHtml(e.name)}" data-emp="${e.id}" data-field="name" style="width:90px"/></td>
       <td><select data-emp="${e.id}" data-field="category" title="Equipa">${catSel}</select></td>
+      <td class="center"><input type="checkbox" data-emp="${e.id}" data-field="isSU" ${e.isSU?'checked':''}/></td>
       ${eligCells}
       <td class="center"><input type="number" min="0" value="${e.maxErPerMonth}" data-emp="${e.id}" data-field="maxErPerMonth" style="width:55px"/></td>
       <td class="center"><input type="number" min="0" value="${e.maxErPerWeek||''}" placeholder="—" data-emp="${e.id}" data-field="maxErPerWeek" style="width:55px"/></td>
@@ -1043,7 +1069,7 @@ function addEmployee(){
     id:'e_'+Date.now(), name:'E'+n, category:'IFE1',
     eligibility: Object.assign({}, DEFAULT_ELIGIBILITY),
     maxErPerMonth:8, maxErPerWeek:2, notes:'',
-    isInterno: true
+    isInterno: true, isSU: true
   });
   saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions(); refreshFolgaEmpOptions();
 }
@@ -1060,8 +1086,9 @@ function copyEmployee(){
     eligibility: Object.assign({}, source.eligibility),
     maxErPerMonth: source.maxErPerMonth,
     maxErPerWeek: source.maxErPerWeek,
-    countCompRestDay: source.countCompRestDay,
-    notes: source.notes
+    notes: source.notes,
+    isInterno: source.isInterno,
+    isSU: source.isSU
   });
   saveState(); renderEmployees(); refreshVacEmpOptions(); refreshCoEmpOptions(); refreshCopyFromOptions();
 }
@@ -1390,6 +1417,22 @@ function renderSettings(){
       saveState();
     });
   });
+  // mínimo SU por equipa
+  const suWrap = document.getElementById('suMinArea');
+  if(suWrap){
+    suWrap.innerHTML = ['LH','LQC','LM','IFE1','IFE4'].map(cat=>`
+      <label>${CATEGORY_LABELS[cat]||cat}
+        <input type="number" min="0" max="9" data-sucat="${cat}"
+               value="${(s.suMinPerTeam||{})[cat]||0}" style="width:52px"/>
+      </label>`).join('');
+    suWrap.querySelectorAll('input[data-sucat]').forEach(el=>{
+      el.addEventListener('change',()=>{
+        s.suMinPerTeam = s.suMinPerTeam||{};
+        s.suMinPerTeam[el.dataset.sucat] = Math.max(0,Number(el.value));
+        saveState();
+      });
+    });
+  }
   // outros campos
   document.getElementById('setPrevCountsInterval').checked = s.preventionCountsForInterval;
 }
